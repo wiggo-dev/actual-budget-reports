@@ -77,10 +77,15 @@ export function DashboardSidebar({
     toggleAccount,
     applyPreset,
     savePreset,
+    renamePreset,
+    updatePreset,
     refreshData,
     loading,
   } = useReportsContext();
   const [presetName, setPresetName] = useState("");
+  const [editPresetId, setEditPresetId] = useState<string | null>(null);
+  const [editPresetName, setEditPresetName] = useState("");
+  const [accountsOpen, setAccountsOpen] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
   const excludedNames = accounts
@@ -90,6 +95,14 @@ export function DashboardSidebar({
   const selectedPresetName = presets.find(
     (preset) => preset.id === selectedPresetId
   )?.name;
+
+  const editTargetId =
+    editPresetId && presets.some((preset) => preset.id === editPresetId)
+      ? editPresetId
+      : (selectedPresetId ?? presets[0]?.id ?? null);
+
+  const editTargetName =
+    presets.find((preset) => preset.id === editTargetId)?.name ?? "";
 
   async function handleRefresh() {
     setSyncing(true);
@@ -210,7 +223,19 @@ export function DashboardSidebar({
           </Select>
         </div>
 
-        <Dialog>
+        <Dialog
+          open={accountsOpen}
+          onOpenChange={(open) => {
+            setAccountsOpen(open);
+            if (open) {
+              const nextId = selectedPresetId ?? presets[0]?.id ?? null;
+              setEditPresetId(nextId);
+              setEditPresetName(
+                presets.find((preset) => preset.id === nextId)?.name ?? ""
+              );
+            }
+          }}
+        >
           <DialogTrigger
             className={cn(
               buttonVariants({ variant: "outline" }),
@@ -262,10 +287,10 @@ export function DashboardSidebar({
                 )}
               </div>
             </ScrollArea>
-            <DialogFooter className="gap-2 sm:justify-between">
-              <div className="flex flex-1 items-end gap-2">
+            <DialogFooter className="flex-col gap-4 sm:flex-col sm:justify-stretch">
+              <div className="flex w-full items-end gap-2">
                 <div className="grid flex-1 gap-1.5">
-                  <Label htmlFor="preset-name">Save as preset</Label>
+                  <Label htmlFor="preset-name">Save as new preset</Label>
                   <Input
                     id="preset-name"
                     value={presetName}
@@ -287,6 +312,77 @@ export function DashboardSidebar({
                   Save
                 </Button>
               </div>
+
+              {presets.length > 0 && editTargetId ? (
+                <div className="w-full space-y-2 border-t border-zinc-100 pt-4">
+                  <Label className="text-xs text-zinc-500">
+                    Existing preset
+                  </Label>
+                  <Select
+                    value={editTargetId}
+                    onValueChange={(value) => {
+                      if (typeof value === "string" && value) {
+                        setEditPresetId(value);
+                        setEditPresetName(
+                          presets.find((preset) => preset.id === value)?.name ??
+                            ""
+                        );
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-full rounded-2xl border-zinc-200">
+                      <SelectValue>{editTargetName}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {presets.map((preset) => (
+                        <SelectItem key={preset.id} value={preset.id}>
+                          {preset.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <div className="flex items-end gap-2">
+                    <div className="grid flex-1 gap-1.5">
+                      <Label htmlFor="edit-preset-name">Name</Label>
+                      <Input
+                        id="edit-preset-name"
+                        value={editPresetName}
+                        onChange={(event) =>
+                          setEditPresetName(event.target.value)
+                        }
+                        className="rounded-2xl"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={
+                        !editPresetName.trim() ||
+                        editPresetName.trim() === editTargetName
+                      }
+                      className="rounded-2xl"
+                      onClick={() => {
+                        void renamePreset(editTargetId, editPresetName.trim());
+                      }}
+                    >
+                      Rename
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="rounded-2xl"
+                      onClick={() => {
+                        void updatePreset(editTargetId);
+                      }}
+                    >
+                      Update
+                    </Button>
+                  </div>
+                  <p className="text-xs text-zinc-500">
+                    Update saves the current account selection to this preset.
+                  </p>
+                </div>
+              ) : null}
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -300,18 +396,18 @@ export function DashboardSidebar({
           <RefreshCw className={syncing ? "animate-spin" : ""} />
           Refresh
         </Button>
-      </div>
 
-      {excludedNames.length > 0 ? (
-        <div className="mt-auto space-y-2 px-2 pt-8 text-xs text-zinc-500">
-          <p>Excluded</p>
-          {excludedNames.map((name) => (
-            <p key={name} className="text-zinc-700">
-              − {name}
-            </p>
-          ))}
-        </div>
-      ) : null}
+        {excludedNames.length > 0 ? (
+          <div className="space-y-2 text-xs text-zinc-500">
+            <p>Excluded</p>
+            {excludedNames.map((name) => (
+              <p key={name} className="text-zinc-700">
+                − {name}
+              </p>
+            ))}
+          </div>
+        ) : null}
+      </div>
     </aside>
   );
 }

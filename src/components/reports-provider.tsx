@@ -40,6 +40,8 @@ type ReportsContextValue = {
   toggleAccount: (accountId: string) => void;
   applyPreset: (presetId: string) => void;
   savePreset: (name: string) => Promise<void>;
+  renamePreset: (presetId: string, name: string) => Promise<void>;
+  updatePreset: (presetId: string) => Promise<void>;
   refreshData: () => Promise<void>;
   queryStringFor: (scope: ReportScope) => string;
   refreshCounter: number;
@@ -262,6 +264,56 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
     [excludedAccountIds, persistSettings, settings]
   );
 
+  const renamePreset = useCallback(
+    async (presetId: string, name: string) => {
+      if (!settings || !name.trim()) {
+        return;
+      }
+
+      const trimmed = name.trim();
+      const presets = settings.presets.map((preset) =>
+        preset.id === presetId ? { ...preset, name: trimmed } : preset
+      );
+
+      if (!presets.some((preset) => preset.id === presetId)) {
+        return;
+      }
+
+      await persistSettings({ ...settings, presets });
+    },
+    [persistSettings, settings]
+  );
+
+  const updatePreset = useCallback(
+    async (presetId: string) => {
+      if (!settings) {
+        return;
+      }
+
+      const presets = settings.presets.map((preset) =>
+        preset.id === presetId ? { ...preset, excludedAccountIds } : preset
+      );
+
+      if (!presets.some((preset) => preset.id === presetId)) {
+        return;
+      }
+
+      const updated: Settings = {
+        ...settings,
+        presets,
+        selectedPresetId: presetId,
+        reportSelections: {
+          ...settings.reportSelections,
+          dashboard: { excludedAccountIds },
+        },
+      };
+
+      await persistSettings(updated);
+      setSelectedPresetId(presetId);
+    },
+    [excludedAccountIds, persistSettings, settings]
+  );
+
   const setTrendTimeframe = useCallback(
     (next: Timeframe) => {
       setTrendTimeframeState(next);
@@ -325,6 +377,8 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
       toggleAccount,
       applyPreset,
       savePreset,
+      renamePreset,
+      updatePreset,
       refreshData,
       queryStringFor,
       refreshCounter,
@@ -345,6 +399,8 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
       toggleAccount,
       applyPreset,
       savePreset,
+      renamePreset,
+      updatePreset,
       refreshData,
       queryStringFor,
       refreshCounter,
