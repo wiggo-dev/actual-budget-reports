@@ -83,7 +83,7 @@ docker compose up -d --build
 
 ```bash
 # in docker-compose.ghcr.yml, set for example:
-image: ghcr.io/wiggo-dev/actual-budget-reports:0.1.0
+image: ghcr.io/wiggo-dev/actual-budget-reports:0.1.1
 ```
 
 Prefer a version tag over `latest` for reproducible deploys.
@@ -94,7 +94,7 @@ Expose only the reports app (port 3000) behind Traefik, Caddy, nginx, Authelia, 
 
 ## Local development
 
-Requires **Node 20+** and **pnpm**.
+Requires **Node 22+** and **pnpm**.
 
 ```bash
 git clone https://github.com/wiggo-dev/actual-budget-reports.git

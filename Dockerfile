@@ -1,9 +1,12 @@
-FROM node:20-bookworm AS base
+FROM node:22-bookworm AS base
 RUN corepack enable pnpm
 WORKDIR /app
 
 FROM base AS deps
-COPY package.json pnpm-lock.yaml .npmrc ./
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 make g++ \
+  && rm -rf /var/lib/apt/lists/*
+COPY package.json pnpm-lock.yaml .npmrc pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
 FROM base AS builder
@@ -18,17 +21,16 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV ACTUAL_DATA_DIR=/data/actual-cache
 ENV SETTINGS_PATH=/data/settings.json
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 make g++ \
-  && rm -rf /var/lib/apt/lists/*
+ENV HOSTNAME=0.0.0.0
 
 WORKDIR /app
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
-RUN mkdir -p /data/actual-cache
+RUN mkdir -p /data/actual-cache /data \
+  && chown -R node:node /data /app
 
+USER node
 EXPOSE 3000
 CMD ["node", "server.js"]
