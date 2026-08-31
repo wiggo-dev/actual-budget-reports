@@ -14,6 +14,7 @@ import {
 import type { AccountPreset, Settings } from "@/lib/settings/types";
 import { readDashboardUrlState } from "@/lib/dashboard-url";
 import { timeframeMonths, type Timeframe } from "@/lib/reports/timeframe";
+import { createId } from "@/lib/utils";
 
 type AccountSummary = {
   id: string;
@@ -250,27 +251,37 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
   const savePreset = useCallback(
     async (name: string) => {
       if (!settings) {
+        setError("Settings are still loading — try again in a moment.");
         return;
       }
 
-      const preset: AccountPreset = {
-        id: crypto.randomUUID(),
-        name,
-        excludedAccountIds,
-      };
+      try {
+        const preset: AccountPreset = {
+          id: createId("preset"),
+          name,
+          excludedAccountIds,
+        };
 
-      const updated: Settings = {
-        ...settings,
-        presets: [...settings.presets, preset],
-        selectedPresetId: preset.id,
-        reportSelections: {
-          ...settings.reportSelections,
-          dashboard: { excludedAccountIds },
-        },
-      };
+        const updated: Settings = {
+          ...settings,
+          presets: [...settings.presets, preset],
+          selectedPresetId: preset.id,
+          reportSelections: {
+            ...settings.reportSelections,
+            dashboard: { excludedAccountIds },
+          },
+        };
 
-      await persistSettings(updated);
-      setSelectedPresetId(preset.id);
+        await persistSettings(updated);
+        setSelectedPresetId(preset.id);
+      } catch (saveError) {
+        const message =
+          saveError instanceof Error
+            ? saveError.message
+            : "Failed to save preset";
+        setError(message);
+        throw saveError;
+      }
     },
     [excludedAccountIds, persistSettings, settings]
   );
