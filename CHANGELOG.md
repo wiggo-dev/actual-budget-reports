@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.3
+
+### Patch Changes
+
+- 070b874: Fix Docker /data volume permissions so presets save; restore favicon.ico; surface settings save errors
+
 ## 0.2.2
 
 ### Patch Changes
