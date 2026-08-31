@@ -83,10 +83,10 @@ docker compose up -d --build
 
 ```bash
 # in docker-compose.ghcr.yml, set for example:
-image: ghcr.io/wiggo-dev/actual-budget-reports:0.1.1
+image: ghcr.io/wiggo-dev/actual-budget-reports:0.2.0
 ```
 
-Prefer a version tag over `latest` for reproducible deploys.
+Prefer a version tag over `latest` for reproducible deploys. Published images are multi-arch (`linux/amd64` and `linux/arm64`).
 
 ### Reverse proxy
 

@@ -109,11 +109,11 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
     try {
+      // Await before any setState so the mount effect stays lint-clean
+      // (react-hooks/set-state-in-effect).
       const health = await fetch("/api/health").then((r) => r.json());
+      setError(null);
       setConfigured(Boolean(health.actualConfigured));
 
       if (!health.actualConfigured) {
@@ -181,6 +181,8 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // Mount fetch against Actual; setState after the network response is expected.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional initial load
     void load();
   }, [load]);
 
@@ -342,6 +344,8 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
   );
 
   const refreshData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     await fetch("/api/sync", { method: "POST" });
     setRefreshCounter((count) => count + 1);
     await load();
@@ -429,7 +433,6 @@ export function useReportData<T>(path: string, scope: ReportScope = "trend") {
 
   useEffect(() => {
     if (!configured) {
-      setLoading(false);
       return;
     }
 
@@ -464,5 +467,5 @@ export function useReportData<T>(path: string, scope: ReportScope = "trend") {
     };
   }, [path, queryString, configured, refreshCounter]);
 
-  return { data, loading, error };
+  return { data, loading: configured ? loading : false, error };
 }
