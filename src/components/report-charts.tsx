@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Bar,
   BarChart,
@@ -285,14 +286,40 @@ function SpendingDonutView({
   limit?: number;
   showLegend?: boolean;
 }) {
-  const chartData = buildDonutSlices(data, limit);
+  const [hiddenCategories, setHiddenCategories] = useState<Set<string>>(
+    () => new Set()
+  );
+  const allSlices = buildDonutSlices(data, limit);
+  const chartData = allSlices.filter(
+    (item) => !hiddenCategories.has(item.category)
+  );
   const total = chartData.reduce((sum, item) => sum + item.amount, 0);
   const config = Object.fromEntries(
-    chartData.map((item) => [
+    allSlices.map((item) => [
       item.category,
       { label: item.category, color: item.fill },
     ])
   ) satisfies ChartConfig;
+
+  function toggleCategory(category: string) {
+    setHiddenCategories((current) => {
+      const next = new Set(current);
+      if (next.has(category)) {
+        next.delete(category);
+        return next;
+      }
+
+      const visibleCount = allSlices.filter(
+        (item) => !next.has(item.category)
+      ).length;
+      if (visibleCount <= 1) {
+        return current;
+      }
+
+      next.add(category);
+      return next;
+    });
+  }
 
   return (
     <div
@@ -323,6 +350,9 @@ function SpendingDonutView({
             stroke="#fff"
             strokeWidth={2}
             paddingAngle={2}
+            animationBegin={0}
+            animationDuration={280}
+            animationEasing="ease-out"
           >
             {chartData.map((item) => (
               <Cell key={item.category} fill={item.fill} />
@@ -364,23 +394,48 @@ function SpendingDonutView({
 
       {showLegend ? (
         <ul className="grid w-full gap-2 text-sm sm:flex-1">
-          {chartData.map((item) => (
-            <li
-              key={item.category}
-              className="flex items-center justify-between gap-3"
-            >
-              <span className="flex min-w-0 items-center gap-2">
-                <span
-                  className="size-2.5 shrink-0 rounded-full"
+          {allSlices.map((item) => {
+            const hidden = hiddenCategories.has(item.category);
+            return (
+              <li
+                key={item.category}
+                className={cn(
+                  "flex min-w-0 items-center gap-2",
+                  hidden && "opacity-45"
+                )}
+              >
+                <button
+                  type="button"
+                  aria-pressed={!hidden}
+                  aria-label={
+                    hidden
+                      ? `Show ${item.category} on chart`
+                      : `Hide ${item.category} from chart`
+                  }
+                  title={
+                    hidden ? `Show ${item.category}` : `Hide ${item.category}`
+                  }
+                  className={cn(
+                    "size-2.5 shrink-0 rounded-full transition-opacity outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2",
+                    hidden && "ring-1 ring-zinc-300 ring-offset-1"
+                  )}
                   style={{ background: item.fill }}
+                  onClick={() => toggleCategory(item.category)}
                 />
-                <span className="truncate text-zinc-700">{item.category}</span>
-              </span>
-              <span className="shrink-0 font-mono tabular-nums text-zinc-900">
-                {money(item.amount)}
-              </span>
-            </li>
-          ))}
+                <span
+                  className={cn(
+                    "truncate text-zinc-700",
+                    hidden && "line-through"
+                  )}
+                >
+                  {item.category}
+                </span>
+                <span className="shrink-0 font-mono tabular-nums text-zinc-900">
+                  {money(item.amount)}
+                </span>
+              </li>
+            );
+          })}
         </ul>
       ) : null}
     </div>
