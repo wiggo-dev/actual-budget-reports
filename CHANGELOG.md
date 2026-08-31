@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.1
+
+### Fixes
+
+- CI lint failures from `react-hooks/set-state-in-effect` in reports provider
+- Publish multi-arch Docker images (`linux/amd64` and `linux/arm64`)
+
 ## 0.2.0
 
 ### Minor Changes
