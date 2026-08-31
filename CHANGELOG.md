@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.5
+
+### Patch Changes
+
+- a0a4b3e: Fix preset save on non-HTTPS hosts (crypto.randomUUID secure-context)
+
 ## 0.2.4
 
 ### Patch Changes
