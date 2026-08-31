@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0
+
+### Minor Changes
+
+- Rename and update existing account presets; dual timeframes, shareable URL state, and spending trend chart
+
 ## 0.1.1
 
 ### Fixes
