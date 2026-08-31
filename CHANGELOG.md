@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.6
+
+### Patch Changes
+
+- f88ce71: Toggle spending donut categories from the legend; snappier animation and tighter legend layout
+
 ## 0.2.5
 
 ### Patch Changes
