@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.2
+
+### Patch Changes
+
+- Custom favicon (non-Vercel) and CI typegen before typecheck
+
 ## 0.2.1
 
 ### Fixes
