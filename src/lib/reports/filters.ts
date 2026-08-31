@@ -1,3 +1,9 @@
+import {
+  parseTimeframe,
+  timeframeWindow,
+  type MonthWindow,
+} from "@/lib/reports/timeframe";
+
 export type ReportAccount = {
   id: string;
   name: string;
@@ -34,19 +40,30 @@ export function parseMonths(
   searchParams: URLSearchParams,
   fallback = 12
 ): number {
+  return parseReportWindow(searchParams, fallback).count;
+}
+
+export function parseReportWindow(
+  searchParams: URLSearchParams,
+  fallbackMonths = 12
+): MonthWindow {
+  if (searchParams.has("timeframe")) {
+    return timeframeWindow(parseTimeframe(searchParams));
+  }
+
   const raw = searchParams.get("months");
   if (!raw) {
-    return fallback;
+    return { count: fallbackMonths, endOffset: 0 };
   }
 
   if (raw === "all") {
-    return 120;
+    return { count: 120, endOffset: 0 };
   }
 
   const parsed = Number.parseInt(raw, 10);
   if (!Number.isFinite(parsed) || parsed < 1) {
-    return fallback;
+    return { count: fallbackMonths, endOffset: 0 };
   }
 
-  return Math.min(parsed, 120);
+  return { count: Math.min(parsed, 120), endOffset: 0 };
 }

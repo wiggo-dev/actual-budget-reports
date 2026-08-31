@@ -6,11 +6,13 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 
 import type { AccountPreset, Settings } from "@/lib/settings/types";
+import { readDashboardUrlState } from "@/lib/dashboard-url";
 import { timeframeMonths, type Timeframe } from "@/lib/reports/timeframe";
 
 type AccountSummary = {
@@ -20,13 +22,17 @@ type AccountSummary = {
   closed: boolean;
 };
 
+export type ReportScope = "trend" | "spending" | "accounts";
+
 type ReportsContextValue = {
   accounts: AccountSummary[];
   excludedAccountIds: string[];
   presets: AccountPreset[];
   selectedPresetId: string | null;
-  timeframe: Timeframe;
-  setTimeframe: (timeframe: Timeframe) => void;
+  trendTimeframe: Timeframe;
+  spendingTimeframe: Timeframe;
+  setTrendTimeframe: (timeframe: Timeframe) => void;
+  setSpendingTimeframe: (timeframe: Timeframe) => void;
   currency: string;
   loading: boolean;
   error: string | null;
@@ -35,7 +41,7 @@ type ReportsContextValue = {
   applyPreset: (presetId: string) => void;
   savePreset: (name: string) => Promise<void>;
   refreshData: () => Promise<void>;
-  queryString: string;
+  queryStringFor: (scope: ReportScope) => string;
   refreshCounter: number;
 };
 
@@ -52,17 +58,53 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   return payload.data as T;
 }
 
+function buildQueryString(
+  excludedAccountIds: string[],
+  timeframe?: Timeframe
+): string {
+  const params = new URLSearchParams();
+  for (const id of excludedAccountIds) {
+    params.append("excludedAccountIds", id);
+  }
+  if (timeframe) {
+    params.set("months", String(timeframeMonths(timeframe)));
+    params.set("timeframe", timeframe);
+  }
+  const value = params.toString();
+  return value ? `?${value}` : "";
+}
+
+function initialUrlOverrides() {
+  if (typeof window === "undefined") {
+    return {};
+  }
+  return readDashboardUrlState(new URLSearchParams(window.location.search));
+}
+
 export function ReportsProvider({ children }: { children: ReactNode }) {
   const [accounts, setAccounts] = useState<AccountSummary[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [excludedAccountIds, setExcludedAccountIds] = useState<string[]>([]);
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
-  const [timeframe, setTimeframe] = useState<Timeframe>("12m");
+  const [trendTimeframe, setTrendTimeframeState] = useState<Timeframe>("12m");
+  const [spendingTimeframe, setSpendingTimeframeState] =
+    useState<Timeframe>("this-month");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [configured, setConfigured] = useState(true);
   const [refreshCounter, setRefreshCounter] = useState(0);
   const [currency, setCurrency] = useState("GBP");
+  const urlOverridesRef = useRef(initialUrlOverrides());
+
+  const persistSettings = useCallback(async (next: Settings) => {
+    const saved = await fetchJson<Settings>("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(next),
+    });
+    setSettings(saved);
+    return saved;
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -85,12 +127,48 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
         })),
       ]);
 
-      setAccounts(accountRows.filter((account) => !account.closed));
+      const openAccounts = accountRows.filter((account) => !account.closed);
+      setAccounts(openAccounts);
       setSettings(savedSettings);
       setCurrency(preferenceRows.currency || "GBP");
-      setExcludedAccountIds(
-        savedSettings.reportSelections["dashboard"]?.excludedAccountIds ?? []
+
+      const url = urlOverridesRef.current;
+      const legacy = savedSettings.timeframe;
+
+      setTrendTimeframeState(
+        url.trend ?? savedSettings.trendTimeframe ?? legacy ?? "12m"
       );
+      setSpendingTimeframeState(
+        url.spending ?? savedSettings.spendingTimeframe ?? "this-month"
+      );
+
+      const urlPreset =
+        url.presetId &&
+        savedSettings.presets.find((preset) => preset.id === url.presetId);
+
+      if (urlPreset) {
+        setSelectedPresetId(urlPreset.id);
+        setExcludedAccountIds(urlPreset.excludedAccountIds);
+      } else if (url.excludedAccountIds) {
+        setSelectedPresetId(null);
+        setExcludedAccountIds(url.excludedAccountIds);
+      } else {
+        const savedPresetId = savedSettings.selectedPresetId ?? null;
+        const matchingPreset = savedPresetId
+          ? savedSettings.presets.find((preset) => preset.id === savedPresetId)
+          : undefined;
+
+        if (matchingPreset) {
+          setSelectedPresetId(matchingPreset.id);
+          setExcludedAccountIds(matchingPreset.excludedAccountIds);
+        } else {
+          setSelectedPresetId(null);
+          setExcludedAccountIds(
+            savedSettings.reportSelections["dashboard"]?.excludedAccountIds ??
+              []
+          );
+        }
+      }
     } catch (loadError) {
       setError(
         loadError instanceof Error ? loadError.message : "Failed to load data"
@@ -104,40 +182,28 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
     void load();
   }, [load]);
 
-  const persistSettings = useCallback(
-    async (nextExcluded: string[], nextSettings: Settings) => {
-      const updated: Settings = {
-        ...nextSettings,
-        reportSelections: {
-          ...nextSettings.reportSelections,
-          dashboard: { excludedAccountIds: nextExcluded },
-        },
-      };
-
-      await fetchJson<Settings>("/api/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updated),
-      });
-
-      setSettings(updated);
-    },
-    []
-  );
-
   const toggleAccount = useCallback(
     (accountId: string) => {
-      setSelectedPresetId(null);
+      if (!settings) {
+        return;
+      }
+
       setExcludedAccountIds((current) => {
-        const next = current.includes(accountId)
+        const nextExcluded = current.includes(accountId)
           ? current.filter((id) => id !== accountId)
           : [...current, accountId];
 
-        if (settings) {
-          void persistSettings(next, settings);
-        }
+        setSelectedPresetId(null);
+        void persistSettings({
+          ...settings,
+          selectedPresetId: null,
+          reportSelections: {
+            ...settings.reportSelections,
+            dashboard: { excludedAccountIds: nextExcluded },
+          },
+        });
 
-        return next;
+        return nextExcluded;
       });
     },
     [persistSettings, settings]
@@ -145,16 +211,25 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
 
   const applyPreset = useCallback(
     (presetId: string) => {
-      const preset = settings?.presets.find((item) => item.id === presetId);
+      if (!settings || !presetId) {
+        return;
+      }
+
+      const preset = settings.presets.find((item) => item.id === presetId);
       if (!preset) {
         return;
       }
 
       setSelectedPresetId(presetId);
       setExcludedAccountIds(preset.excludedAccountIds);
-      if (settings) {
-        void persistSettings(preset.excludedAccountIds, settings);
-      }
+      void persistSettings({
+        ...settings,
+        selectedPresetId: presetId,
+        reportSelections: {
+          ...settings.reportSelections,
+          dashboard: { excludedAccountIds: preset.excludedAccountIds },
+        },
+      });
     },
     [persistSettings, settings]
   );
@@ -174,18 +249,44 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
       const updated: Settings = {
         ...settings,
         presets: [...settings.presets, preset],
+        selectedPresetId: preset.id,
+        reportSelections: {
+          ...settings.reportSelections,
+          dashboard: { excludedAccountIds },
+        },
       };
 
-      await fetchJson<Settings>("/api/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updated),
-      });
-
-      setSettings(updated);
+      await persistSettings(updated);
       setSelectedPresetId(preset.id);
     },
-    [excludedAccountIds, settings]
+    [excludedAccountIds, persistSettings, settings]
+  );
+
+  const setTrendTimeframe = useCallback(
+    (next: Timeframe) => {
+      setTrendTimeframeState(next);
+      if (settings) {
+        void persistSettings({
+          ...settings,
+          trendTimeframe: next,
+          timeframe: next,
+        });
+      }
+    },
+    [persistSettings, settings]
+  );
+
+  const setSpendingTimeframe = useCallback(
+    (next: Timeframe) => {
+      setSpendingTimeframeState(next);
+      if (settings) {
+        void persistSettings({
+          ...settings,
+          spendingTimeframe: next,
+        });
+      }
+    },
+    [persistSettings, settings]
   );
 
   const refreshData = useCallback(async () => {
@@ -194,16 +295,18 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
     await load();
   }, [load]);
 
-  const queryString = useMemo(() => {
-    const params = new URLSearchParams();
-    for (const id of excludedAccountIds) {
-      params.append("excludedAccountIds", id);
-    }
-    params.set("months", String(timeframeMonths(timeframe)));
-    params.set("timeframe", timeframe);
-    const value = params.toString();
-    return value ? `?${value}` : "";
-  }, [excludedAccountIds, timeframe]);
+  const queryStringFor = useCallback(
+    (scope: ReportScope) => {
+      if (scope === "trend") {
+        return buildQueryString(excludedAccountIds, trendTimeframe);
+      }
+      if (scope === "spending") {
+        return buildQueryString(excludedAccountIds, spendingTimeframe);
+      }
+      return buildQueryString(excludedAccountIds);
+    },
+    [excludedAccountIds, spendingTimeframe, trendTimeframe]
+  );
 
   const value = useMemo<ReportsContextValue>(
     () => ({
@@ -211,8 +314,10 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
       excludedAccountIds,
       presets: settings?.presets ?? [],
       selectedPresetId,
-      timeframe,
-      setTimeframe,
+      trendTimeframe,
+      spendingTimeframe,
+      setTrendTimeframe,
+      setSpendingTimeframe,
       currency,
       loading,
       error,
@@ -221,7 +326,7 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
       applyPreset,
       savePreset,
       refreshData,
-      queryString,
+      queryStringFor,
       refreshCounter,
     }),
     [
@@ -229,7 +334,10 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
       excludedAccountIds,
       settings?.presets,
       selectedPresetId,
-      timeframe,
+      trendTimeframe,
+      spendingTimeframe,
+      setTrendTimeframe,
+      setSpendingTimeframe,
       currency,
       loading,
       error,
@@ -238,7 +346,7 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
       applyPreset,
       savePreset,
       refreshData,
-      queryString,
+      queryStringFor,
       refreshCounter,
     ]
   );
@@ -256,8 +364,9 @@ export function useReportsContext() {
   return context;
 }
 
-export function useReportData<T>(path: string) {
-  const { queryString, configured, refreshCounter } = useReportsContext();
+export function useReportData<T>(path: string, scope: ReportScope = "trend") {
+  const { queryStringFor, configured, refreshCounter } = useReportsContext();
+  const queryString = queryStringFor(scope);
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

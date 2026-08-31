@@ -1,6 +1,7 @@
 import { actual } from "@/lib/actual/client";
 import { formatLocalDate, integerToAmount, monthKey } from "@/lib/format";
 import { filterAccounts } from "@/lib/reports/filters";
+import { monthsInWindow, type MonthWindow } from "@/lib/reports/timeframe";
 
 export type CashFlowPoint = {
   month: string;
@@ -8,26 +9,15 @@ export type CashFlowPoint = {
   outflow: number;
 };
 
-function monthsBack(count: number): Date[] {
-  const now = new Date();
-  const months: Date[] = [];
-
-  for (let i = count - 1; i >= 0; i -= 1) {
-    months.push(new Date(now.getFullYear(), now.getMonth() - i, 1));
-  }
-
-  return months;
-}
-
 export async function getCashFlow(
   excludedAccountIds: string[],
-  months = 12
+  window: MonthWindow = { count: 12, endOffset: 0 }
 ): Promise<CashFlowPoint[]> {
   const accounts = filterAccounts(
     await actual.getAccounts(),
     excludedAccountIds
   );
-  const monthStarts = monthsBack(months);
+  const monthStarts = monthsInWindow(window);
   const points: CashFlowPoint[] = [];
 
   for (const monthStart of monthStarts) {

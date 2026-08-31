@@ -9,7 +9,7 @@ import {
   IncomeVsExpensesChart,
   NetWorthChart,
   SpendingByCategoryChart,
-  SpendingChips,
+  SpendingDonutChart,
   useOverviewStats,
 } from "@/components/report-charts";
 import { useReportsContext } from "@/components/reports-provider";
@@ -22,7 +22,7 @@ function pct(value: number) {
 }
 
 export function DashboardOverview() {
-  const { currency, timeframe } = useReportsContext();
+  const { currency } = useReportsContext();
   const money = (amount: number) => formatMoney(amount, currency);
   const stats = useOverviewStats();
   const spentRatio =
@@ -63,7 +63,8 @@ export function DashboardOverview() {
         </p>
         {stats.netWorthDelta != null ? (
           <p className="mt-3 inline-flex rounded-full bg-white/15 px-3 py-1 text-sm">
-            {pct(stats.netWorthDelta)} over {stats.timeframeLabel.toLowerCase()}
+            {pct(stats.netWorthDelta)} over{" "}
+            {stats.trendTimeframeLabel.toLowerCase()}
           </p>
         ) : null}
         <div className="mt-8 opacity-90">
@@ -72,7 +73,7 @@ export function DashboardOverview() {
       </div>
 
       <div className="rounded-[2rem] bg-white p-6 shadow-sm md:col-span-2">
-        <p className="text-sm text-zinc-500">{stats.timeframeLabel}</p>
+        <p className="text-sm text-zinc-500">{stats.spendingTimeframeLabel}</p>
         <p className="mt-2 text-3xl font-semibold text-zinc-900">
           {stats.periodExpenses != null ? money(stats.periodExpenses) : "—"}
         </p>
@@ -97,14 +98,14 @@ export function DashboardOverview() {
 
       <div className="rounded-[2rem] bg-white p-6 shadow-sm md:col-span-3">
         <p className="mb-4 text-sm text-zinc-500">
-          Spending mix · {stats.timeframeLabel.toLowerCase()}
+          Spending mix · {stats.spendingTimeframeLabel.toLowerCase()}
         </p>
-        <SpendingChips />
+        <SpendingDonutChart compact showLegend />
       </div>
 
       <div className="rounded-[2rem] bg-lime-200 p-6 md:col-span-3">
         <p className="mb-4 text-sm text-emerald-900/70">
-          Cash flow · {stats.timeframeLabel.toLowerCase()}
+          Cash flow · {stats.trendTimeframeLabel.toLowerCase()}
         </p>
         <CashFlowChart compact />
       </div>
@@ -145,13 +146,17 @@ export function DashboardReportView({
     "overview"
   >;
 }) {
-  const { timeframe } = useReportsContext();
-  const range = timeframeLabel(timeframe);
+  const { trendTimeframe, spendingTimeframe } = useReportsContext();
+  const trendRange = timeframeLabel(trendTimeframe);
+  const spendingRange = timeframeLabel(spendingTimeframe);
 
   switch (view) {
     case "net-worth":
       return (
-        <DashboardReportPanel title="Net worth over time" description={range}>
+        <DashboardReportPanel
+          title="Net worth over time"
+          description={trendRange}
+        >
           <NetWorthChart />
         </DashboardReportPanel>
       );
@@ -166,13 +171,19 @@ export function DashboardReportView({
       );
     case "spending-by-category":
       return (
-        <DashboardReportPanel title="Spending by category" description={range}>
+        <DashboardReportPanel
+          title="Spending by category"
+          description={`Mix · ${spendingRange} · Trend · ${trendRange}`}
+        >
           <SpendingByCategoryChart />
         </DashboardReportPanel>
       );
     case "income-vs-expenses":
       return (
-        <DashboardReportPanel title="Income vs expenses" description={range}>
+        <DashboardReportPanel
+          title="Income vs expenses"
+          description={trendRange}
+        >
           <IncomeVsExpensesChart />
         </DashboardReportPanel>
       );
@@ -187,7 +198,7 @@ export function DashboardReportView({
       );
     case "cash-flow":
       return (
-        <DashboardReportPanel title="Cash flow" description={range}>
+        <DashboardReportPanel title="Cash flow" description={trendRange}>
           <CashFlowChart />
         </DashboardReportPanel>
       );

@@ -1,6 +1,6 @@
 "use client";
 
-import { RefreshCw } from "lucide-react";
+import { Info, RefreshCw } from "lucide-react";
 import { useState } from "react";
 
 import { useReportsContext } from "@/components/reports-provider";
@@ -24,27 +24,37 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { TIMEFRAMES, type Timeframe } from "@/lib/reports/timeframe";
+import { dashboardViews, type DashboardView } from "@/lib/dashboard-views";
 import { cn } from "@/lib/utils";
 
-export type DashboardView =
-  | "overview"
-  | "net-worth"
-  | "account-balances"
-  | "spending-by-category"
-  | "income-vs-expenses"
-  | "budget-vs-actual"
-  | "cash-flow";
+export type { DashboardView };
+export { dashboardViews };
 
-export const dashboardViews: { id: DashboardView; label: string }[] = [
-  { id: "overview", label: "Overview" },
-  { id: "net-worth", label: "Net worth" },
-  { id: "account-balances", label: "Balances" },
-  { id: "spending-by-category", label: "Spending" },
-  { id: "income-vs-expenses", label: "Income vs expenses" },
-  { id: "budget-vs-actual", label: "Budget vs actual" },
-  { id: "cash-flow", label: "Cash flow" },
-];
+function TimeframeInfo({ label, detail }: { label: string; detail: string }) {
+  return (
+    <div className="flex items-center gap-1 px-1">
+      <Label className="text-xs text-zinc-500">{label}</Label>
+      <Tooltip>
+        <TooltipTrigger
+          type="button"
+          className="rounded-full p-0.5 text-zinc-400 transition-colors hover:text-zinc-600"
+          aria-label={`${label} details`}
+        >
+          <Info className="size-3.5" />
+        </TooltipTrigger>
+        <TooltipContent side="right" className="max-w-[220px] text-left">
+          {detail}
+        </TooltipContent>
+      </Tooltip>
+    </div>
+  );
+}
 
 type DashboardSidebarProps = {
   active: DashboardView;
@@ -60,8 +70,10 @@ export function DashboardSidebar({
     excludedAccountIds,
     presets,
     selectedPresetId,
-    timeframe,
-    setTimeframe,
+    trendTimeframe,
+    spendingTimeframe,
+    setTrendTimeframe,
+    setSpendingTimeframe,
     toggleAccount,
     applyPreset,
     savePreset,
@@ -75,8 +87,9 @@ export function DashboardSidebar({
     .filter((account) => excludedAccountIds.includes(account.id))
     .map((account) => account.name);
 
-  const selectedPresetName =
-    presets.find((preset) => preset.id === selectedPresetId)?.name ?? null;
+  const selectedPresetName = presets.find(
+    (preset) => preset.id === selectedPresetId
+  )?.name;
 
   async function handleRefresh() {
     setSyncing(true);
@@ -114,18 +127,52 @@ export function DashboardSidebar({
 
       <div className="mt-6 space-y-3 px-2">
         <div className="space-y-1.5">
-          <Label className="px-1 text-xs text-zinc-500">Timeframe</Label>
+          <TimeframeInfo
+            label="Trends"
+            detail="Applies to net worth, cash flow, and income vs expenses."
+          />
           <Select
-            value={timeframe}
+            value={trendTimeframe}
             onValueChange={(value) => {
               if (typeof value === "string" && value) {
-                setTimeframe(value as Timeframe);
+                setTrendTimeframe(value as Timeframe);
               }
             }}
           >
             <SelectTrigger className="w-full rounded-2xl border-zinc-200">
               <SelectValue>
-                {TIMEFRAMES.find((item) => item.id === timeframe)?.label}
+                {TIMEFRAMES.find((item) => item.id === trendTimeframe)?.label}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {TIMEFRAMES.map((item) => (
+                <SelectItem key={item.id} value={item.id}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1.5">
+          <TimeframeInfo
+            label="Spending"
+            detail="Applies to category spending mix and totals."
+          />
+          <Select
+            value={spendingTimeframe}
+            onValueChange={(value) => {
+              if (typeof value === "string" && value) {
+                setSpendingTimeframe(value as Timeframe);
+              }
+            }}
+          >
+            <SelectTrigger className="w-full rounded-2xl border-zinc-200">
+              <SelectValue>
+                {
+                  TIMEFRAMES.find((item) => item.id === spendingTimeframe)
+                    ?.label
+                }
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
@@ -141,7 +188,7 @@ export function DashboardSidebar({
         <div className="space-y-1.5">
           <Label className="px-1 text-xs text-zinc-500">Preset</Label>
           <Select
-            value={selectedPresetId ?? undefined}
+            value={selectedPresetId}
             onValueChange={(value) => {
               if (typeof value === "string" && value) {
                 applyPreset(value);

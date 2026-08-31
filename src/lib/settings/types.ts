@@ -21,9 +21,25 @@ export const presetSchema = z.object({
   excludedAccountIds: z.array(z.string()),
 });
 
+export const timeframeSchema = z.enum([
+  "this-month",
+  "last-month",
+  "2m",
+  "3m",
+  "6m",
+  "12m",
+  "24m",
+  "all",
+]);
+
 export const settingsSchema = z.object({
   presets: z.array(presetSchema),
   reportSelections: z.record(z.string(), accountSelectionSchema),
+  selectedPresetId: z.string().nullable().optional(),
+  /** @deprecated Prefer trendTimeframe / spendingTimeframe */
+  timeframe: timeframeSchema.optional(),
+  trendTimeframe: timeframeSchema.optional(),
+  spendingTimeframe: timeframeSchema.optional(),
 });
 
 export type Settings = z.infer<typeof settingsSchema>;
@@ -38,4 +54,7 @@ export const defaultSettings: Settings = {
     },
   ],
   reportSelections: {},
+  selectedPresetId: "all-accounts",
+  trendTimeframe: "12m",
+  spendingTimeframe: "this-month",
 };

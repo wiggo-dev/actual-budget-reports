@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import {
   DashboardSidebar,
@@ -14,10 +15,57 @@ import {
   ReportsProvider,
   useReportsContext,
 } from "@/components/reports-provider";
+import {
+  buildDashboardSearchParams,
+  parseDashboardView,
+} from "@/lib/dashboard-url";
 
 function DashboardBody() {
-  const { configured, error, loading } = useReportsContext();
-  const [activeView, setActiveView] = useState<DashboardView>("overview");
+  const {
+    configured,
+    error,
+    loading,
+    trendTimeframe,
+    spendingTimeframe,
+    selectedPresetId,
+    excludedAccountIds,
+  } = useReportsContext();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const [activeView, setActiveView] = useState<DashboardView>(
+    () => parseDashboardView(searchParams.get("view")) ?? "overview"
+  );
+
+  useEffect(() => {
+    if (loading) {
+      return;
+    }
+
+    const next = buildDashboardSearchParams({
+      view: activeView,
+      trend: trendTimeframe,
+      spending: spendingTimeframe,
+      presetId: selectedPresetId,
+      excludedAccountIds,
+    }).toString();
+
+    if (next === searchParams.toString()) {
+      return;
+    }
+
+    router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
+  }, [
+    activeView,
+    excludedAccountIds,
+    loading,
+    pathname,
+    router,
+    searchParams,
+    selectedPresetId,
+    spendingTimeframe,
+    trendTimeframe,
+  ]);
 
   if (!configured) {
     return (
@@ -63,7 +111,13 @@ function DashboardBody() {
 export function Dashboard() {
   return (
     <ReportsProvider>
-      <DashboardBody />
+      <Suspense
+        fallback={
+          <p className="p-6 text-sm text-zinc-500">Loading dashboard…</p>
+        }
+      >
+        <DashboardBody />
+      </Suspense>
     </ReportsProvider>
   );
 }

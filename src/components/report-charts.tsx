@@ -4,8 +4,13 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
+  ComposedChart,
+  Label,
   Line,
   LineChart,
+  Pie,
+  PieChart,
   XAxis,
   YAxis,
 } from "recharts";
@@ -40,21 +45,22 @@ const cashFlowConfig = {
   outflow: { label: "Outflow", color: "rgba(6,95,70,0.35)" },
 } satisfies ChartConfig;
 
-const spendingConfig = {
-  amount: { label: "Spent", color: "#0d9488" },
-} satisfies ChartConfig;
-
 const budgetConfig = {
   budgeted: { label: "Budgeted", color: "#059669" },
   spent: { label: "Spent", color: "#f59e0b" },
 } satisfies ChartConfig;
 
-const chipPalette = [
-  "bg-emerald-200",
-  "bg-amber-200",
-  "bg-sky-200",
-  "bg-rose-200",
-  "bg-violet-200",
+const donutPalette = [
+  "#0d9488",
+  "#f59e0b",
+  "#38bdf8",
+  "#fb7185",
+  "#8b5cf6",
+  "#14b8a6",
+  "#eab308",
+  "#6366f1",
+  "#f97316",
+  "#84cc16",
 ];
 
 function useMoney() {
@@ -229,10 +235,9 @@ export function NetWorthChart({
 
 export function AccountBalancesChart() {
   const money = useMoney();
-  const { data, loading, error } =
-    useReportData<
-      { id: string; name: string; balance: number; offbudget: boolean }[]
-    >("account-balances");
+  const { data, loading, error } = useReportData<
+    { id: string; name: string; balance: number; offbudget: boolean }[]
+  >("account-balances", "accounts");
 
   if (loading) return <ChartSkeleton />;
   if (error) return <ChartError message={error} />;
@@ -249,67 +254,281 @@ export function AccountBalancesChart() {
   );
 }
 
-export function SpendingChips() {
-  const money = useMoney();
-  const { data, loading, error } = useReportData<
-    { category: string; amount: number }[]
-  >("spending-by-category");
+type SpendingRow = { category: string; amount: number };
 
-  if (loading) return <ChartSkeleton className="h-24" />;
+function buildDonutSlices(data: SpendingRow[], limit: number) {
+  const top = data.slice(0, limit);
+  const remainder = data
+    .slice(limit)
+    .reduce((sum, item) => sum + item.amount, 0);
+  const slices =
+    remainder > 0 ? [...top, { category: "Other", amount: remainder }] : top;
+
+  return slices.map((item, index) => ({
+    ...item,
+    fill: donutPalette[index % donutPalette.length],
+  }));
+}
+
+function SpendingDonutView({
+  data,
+  money,
+  className,
+  compact = false,
+  limit = 8,
+  showLegend = false,
+}: {
+  data: SpendingRow[];
+  money: (amount: number, options?: { hideFraction?: boolean }) => string;
+  className?: string;
+  compact?: boolean;
+  limit?: number;
+  showLegend?: boolean;
+}) {
+  const chartData = buildDonutSlices(data, limit);
+  const total = chartData.reduce((sum, item) => sum + item.amount, 0);
+  const config = Object.fromEntries(
+    chartData.map((item) => [
+      item.category,
+      { label: item.category, color: item.fill },
+    ])
+  ) satisfies ChartConfig;
+
+  return (
+    <div
+      className={cn(
+        showLegend
+          ? "flex flex-col items-center gap-4 sm:flex-row sm:items-center"
+          : undefined,
+        className
+      )}
+    >
+      <ChartContainer
+        config={config}
+        className={cn(
+          compact
+            ? "mx-auto aspect-square h-48 max-w-[220px]"
+            : "mx-auto aspect-square h-[280px] max-w-[280px]",
+          "w-full"
+        )}
+      >
+        <PieChart accessibilityLayer>
+          <ChartTooltip content={<MoneyTooltip money={money} />} />
+          <Pie
+            data={chartData}
+            dataKey="amount"
+            nameKey="category"
+            innerRadius={compact ? 48 : 68}
+            outerRadius={compact ? 76 : 110}
+            stroke="#fff"
+            strokeWidth={2}
+            paddingAngle={2}
+          >
+            {chartData.map((item) => (
+              <Cell key={item.category} fill={item.fill} />
+            ))}
+            <Label
+              content={({ viewBox }) => {
+                if (!viewBox || !("cx" in viewBox) || !("cy" in viewBox)) {
+                  return null;
+                }
+
+                return (
+                  <text
+                    x={viewBox.cx}
+                    y={viewBox.cy}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                  >
+                    <tspan
+                      x={viewBox.cx}
+                      y={(viewBox.cy ?? 0) - 6}
+                      className="fill-zinc-900 text-lg font-semibold"
+                    >
+                      {money(total, { hideFraction: true })}
+                    </tspan>
+                    <tspan
+                      x={viewBox.cx}
+                      y={(viewBox.cy ?? 0) + 14}
+                      className="fill-zinc-500 text-xs"
+                    >
+                      total
+                    </tspan>
+                  </text>
+                );
+              }}
+            />
+          </Pie>
+        </PieChart>
+      </ChartContainer>
+
+      {showLegend ? (
+        <ul className="grid w-full gap-2 text-sm sm:flex-1">
+          {chartData.map((item) => (
+            <li
+              key={item.category}
+              className="flex items-center justify-between gap-3"
+            >
+              <span className="flex min-w-0 items-center gap-2">
+                <span
+                  className="size-2.5 shrink-0 rounded-full"
+                  style={{ background: item.fill }}
+                />
+                <span className="truncate text-zinc-700">{item.category}</span>
+              </span>
+              <span className="shrink-0 font-mono tabular-nums text-zinc-900">
+                {money(item.amount)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
+export function SpendingDonutChart({
+  className,
+  compact = false,
+  limit = 8,
+  showLegend = false,
+}: {
+  className?: string;
+  compact?: boolean;
+  limit?: number;
+  showLegend?: boolean;
+}) {
+  const money = useMoney();
+  const { data, loading, error } = useReportData<SpendingRow[]>(
+    "spending-by-category",
+    "spending"
+  );
+
+  if (loading) {
+    return (
+      <ChartSkeleton
+        className={cn(compact ? "h-48" : "h-[280px]", className)}
+      />
+    );
+  }
   if (error) return <ChartError message={error} />;
   if (!data?.length) {
     return <ChartError message="No spending data for this timeframe." />;
   }
 
   return (
-    <div className="flex flex-wrap gap-2">
-      {data.slice(0, 8).map((item, index) => (
-        <span
-          key={item.category}
-          title={money(item.amount)}
-          className={cn(
-            "rounded-full px-4 py-2 text-sm text-zinc-900",
-            chipPalette[index % chipPalette.length]
-          )}
-        >
-          {item.category} · {money(item.amount)}
-        </span>
-      ))}
-    </div>
+    <SpendingDonutView
+      data={data}
+      money={money}
+      className={className}
+      compact={compact}
+      limit={limit}
+      showLegend={showLegend}
+    />
   );
 }
 
 export function SpendingByCategoryChart() {
   const money = useMoney();
-  const { data, loading, error } = useReportData<
-    { category: string; amount: number }[]
-  >("spending-by-category");
+  const donut = useReportData<SpendingRow[]>(
+    "spending-by-category",
+    "spending"
+  );
+  const trend = useReportData<{
+    categories: string[];
+    points: Array<
+      { month: string; total: number } & Record<string, number | string>
+    >;
+  }>("spending-trend", "trend");
 
-  if (loading) return <ChartSkeleton />;
-  if (error) return <ChartError message={error} />;
-  if (!data?.length) {
+  if (donut.loading || trend.loading) {
+    return <ChartSkeleton className="h-[280px]" />;
+  }
+  if (donut.error) return <ChartError message={donut.error} />;
+  if (trend.error) return <ChartError message={trend.error} />;
+  if (!donut.data?.length && !trend.data?.points.length) {
     return <ChartError message="No spending data for this timeframe." />;
   }
 
+  const categories = trend.data?.categories ?? [];
+  const points = trend.data?.points ?? [];
+  const trendConfig = {
+    ...Object.fromEntries(
+      categories.map((category, index) => [
+        category,
+        {
+          label: category,
+          color: donutPalette[index % donutPalette.length],
+        },
+      ])
+    ),
+    total: { label: "Total", color: "#134e4a" },
+  } satisfies ChartConfig;
+
   return (
-    <ChartContainer config={spendingConfig} className="h-[280px] w-full">
-      <BarChart data={data.slice(0, 10)} accessibilityLayer>
-        <CartesianGrid vertical={false} />
-        <XAxis dataKey="category" tickLine={false} axisLine={false} />
-        <YAxis
-          tickLine={false}
-          axisLine={false}
-          tickFormatter={(value) => money(Number(value))}
-        />
-        <ChartTooltip content={<MoneyTooltip money={money} />} />
-        <Bar
-          dataKey="amount"
-          name="Spent"
-          fill="var(--color-amount)"
-          radius={8}
-        />
-      </BarChart>
-    </ChartContainer>
+    <div className="grid gap-10">
+      {donut.data?.length ? (
+        <SpendingDonutView data={donut.data} money={money} showLegend />
+      ) : (
+        <ChartError message="No spending data for the spending timeframe." />
+      )}
+
+      {points.length ? (
+        <ChartContainer
+          config={trendConfig}
+          className="aspect-auto h-[320px] w-full"
+        >
+          <ComposedChart
+            data={points}
+            accessibilityLayer
+            margin={{ top: 8, right: 8, left: 4, bottom: 0 }}
+          >
+            <CartesianGrid vertical={false} />
+            <XAxis
+              dataKey="month"
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(value) => String(value).slice(5)}
+            />
+            <YAxis
+              width={72}
+              tickLine={false}
+              axisLine={false}
+              tickMargin={8}
+              tickFormatter={(value) =>
+                money(Number(value), { hideFraction: true })
+              }
+            />
+            <ChartTooltip content={<MoneyTooltip money={money} />} />
+            <ChartLegend content={<ChartLegendContent />} />
+            {categories.map((category, index) => (
+              <Bar
+                key={category}
+                dataKey={category}
+                name={category}
+                stackId="spend"
+                fill={donutPalette[index % donutPalette.length]}
+                maxBarSize={48}
+                radius={
+                  index === categories.length - 1 ? [6, 6, 0, 0] : [0, 0, 0, 0]
+                }
+              />
+            ))}
+            <Line
+              type="monotone"
+              dataKey="total"
+              name="Total"
+              stroke="#134e4a"
+              strokeWidth={2.5}
+              dot={false}
+              activeDot={{ r: 4 }}
+            />
+          </ComposedChart>
+        </ChartContainer>
+      ) : (
+        <ChartError message="No spending trend data for the trends timeframe." />
+      )}
+    </div>
   );
 }
 
@@ -361,10 +580,9 @@ export function IncomeVsExpensesChart() {
 
 export function BudgetVsActualChart() {
   const money = useMoney();
-  const { data, loading, error } =
-    useReportData<{ category: string; budgeted: number; spent: number }[]>(
-      "budget-vs-actual"
-    );
+  const { data, loading, error } = useReportData<
+    { category: string; budgeted: number; spent: number }[]
+  >("budget-vs-actual", "accounts");
 
   if (loading) return <ChartSkeleton />;
   if (error) return <ChartError message={error} />;
@@ -458,13 +676,14 @@ export function CashFlowChart({ compact = false }: { compact?: boolean }) {
 }
 
 export function useOverviewStats() {
-  const { timeframe } = useReportsContext();
-  const netWorth =
-    useReportData<{ month: string; netWorth: number }[]>("net-worth");
-  const incomeExpenses =
-    useReportData<{ month: string; income: number; expenses: number }[]>(
-      "income-vs-expenses"
-    );
+  const { trendTimeframe, spendingTimeframe } = useReportsContext();
+  const netWorth = useReportData<{ month: string; netWorth: number }[]>(
+    "net-worth",
+    "trend"
+  );
+  const incomeExpenses = useReportData<
+    { month: string; income: number; expenses: number }[]
+  >("income-vs-expenses", "spending");
 
   const latestNetWorth =
     netWorth.data?.[netWorth.data.length - 1]?.netWorth ?? null;
@@ -489,6 +708,7 @@ export function useOverviewStats() {
     incomeThisMonth: latestMonth?.income ?? null,
     periodIncome,
     periodExpenses,
-    timeframeLabel: timeframeLabel(timeframe),
+    trendTimeframeLabel: timeframeLabel(trendTimeframe),
+    spendingTimeframeLabel: timeframeLabel(spendingTimeframe),
   };
 }
