@@ -304,9 +304,11 @@ export function DashboardSidebar({
                   disabled={!presetName.trim()}
                   className="rounded-2xl"
                   onClick={() => {
-                    void savePreset(presetName.trim()).then(() =>
-                      setPresetName("")
-                    );
+                    void savePreset(presetName.trim())
+                      .then(() => setPresetName(""))
+                      .catch(() => {
+                        /* error surfaced via reports context */
+                      });
                   }}
                 >
                   Save

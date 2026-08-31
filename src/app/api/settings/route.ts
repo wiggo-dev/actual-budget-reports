@@ -18,6 +18,12 @@ export async function PUT(request: Request) {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Invalid settings payload";
-    return jsonError(message, 400);
+    const code =
+      error && typeof error === "object" && "code" in error
+        ? String(error.code)
+        : "";
+    const status =
+      code === "EACCES" || code === "EPERM" || code === "EROFS" ? 500 : 400;
+    return jsonError(message, status);
   }
 }

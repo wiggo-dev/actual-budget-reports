@@ -27,10 +27,15 @@ WORKDIR /app
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
-RUN mkdir -p /data/actual-cache /data \
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh \
+  && mkdir -p /data/actual-cache /data \
   && chown -R node:node /data /app
 
-USER node
+# Entrypoint starts as root so it can chown the mounted /data volume, then
+# drops to `node` before running the server.
+USER root
 EXPOSE 3000
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["node", "server.js"]

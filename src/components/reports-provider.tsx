@@ -99,13 +99,22 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
   const urlOverridesRef = useRef(initialUrlOverrides());
 
   const persistSettings = useCallback(async (next: Settings) => {
-    const saved = await fetchJson<Settings>("/api/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(next),
-    });
-    setSettings(saved);
-    return saved;
+    try {
+      const saved = await fetchJson<Settings>("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(next),
+      });
+      setSettings(saved);
+      return saved;
+    } catch (persistError) {
+      const message =
+        persistError instanceof Error
+          ? persistError.message
+          : "Failed to save settings";
+      setError(message);
+      throw persistError;
+    }
   }, []);
 
   const load = useCallback(async () => {
