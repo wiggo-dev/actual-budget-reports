@@ -1,0 +1,22 @@
+# Pull the published image from GHCR and point it at an existing Actual server.
+# Copy .env.example → .env and set ACTUAL_* values first.
+
+services:
+  reports:
+    image: ghcr.io/wiggo-dev/actual-budget-reports:0.1.0
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      ACTUAL_SERVER_URL: ${ACTUAL_SERVER_URL}
+      ACTUAL_SERVER_PASSWORD: ${ACTUAL_SERVER_PASSWORD}
+      ACTUAL_SYNC_ID: ${ACTUAL_SYNC_ID}
+      ACTUAL_E2E_PASSWORD: ${ACTUAL_E2E_PASSWORD:-}
+      ACTUAL_DATA_DIR: /data/actual-cache
+      SETTINGS_PATH: /data/settings.json
+      SYNC_INTERVAL_MS: ${SYNC_INTERVAL_MS:-300000}
+    volumes:
+      - reports-data:/data
+
+volumes:
+  reports-data:

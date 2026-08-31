@@ -1,0 +1,14 @@
+node_modules
+.next
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+README.md
+docs
+.agents
+skills-lock.json
+AGENTS.md
+*.md
+!README.md
