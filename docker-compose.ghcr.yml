@@ -1,9 +1,13 @@
 # Pull the published image from GHCR and point it at an existing Actual server.
 # Copy .env.example → .env and set ACTUAL_* values first.
+#
+# `:release` always points at the latest non-prerelease image. Re-pull after
+# upgrades: `docker compose -f docker-compose.ghcr.yml pull && docker compose -f docker-compose.ghcr.yml up -d`
+# Pin a semver tag (e.g. :0.2.3) instead if you want reproducible deploys.
 
 services:
   reports:
-    image: ghcr.io/wiggo-dev/actual-budget-reports:0.2.3
+    image: ghcr.io/wiggo-dev/actual-budget-reports:release
     restart: unless-stopped
     ports:
       - "3000:3000"

@@ -79,14 +79,23 @@ docker compose up -d --build
 2. Copy the Sync ID into `.env` and restart: `docker compose up -d`
 3. Open reports at http://localhost:3000
 
-### Pin a version
+### Image tags
+
+`docker-compose.ghcr.yml` tracks `:release` (latest non-prerelease). After a new GitHub Release:
 
 ```bash
-# in docker-compose.ghcr.yml, set for example:
+docker compose pull && docker compose up -d
+```
+
+Floating tags do not update a running container by themselves — you still need to pull.
+
+To pin a reproducible deploy instead:
+
+```yaml
 image: ghcr.io/wiggo-dev/actual-budget-reports:0.2.3
 ```
 
-Prefer a version tag over `latest` for reproducible deploys. Published images are multi-arch (`linux/amd64` and `linux/arm64`).
+Published images are multi-arch (`linux/amd64` and `linux/arm64`).
 
 ### Reverse proxy
 
@@ -145,7 +154,8 @@ Images publish to GHCR when a **GitHub Release** is published:
 
 ```
 ghcr.io/wiggo-dev/actual-budget-reports:X.Y.Z
-ghcr.io/wiggo-dev/actual-budget-reports:latest
+ghcr.io/wiggo-dev/actual-budget-reports:release   # latest non-prerelease
+ghcr.io/wiggo-dev/actual-budget-reports:latest    # same as :release
 ```
 
 Versioning uses Conventional Commits + Changesets:
