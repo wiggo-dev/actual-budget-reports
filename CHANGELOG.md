@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.0
+
+### Minor Changes
+
+- 620dfe3: Add custom date ranges for trend and spending report scopes, with URL round-trip and validation in the sidebar.
+
 ## 1.0.3
 
 ### Patch Changes
