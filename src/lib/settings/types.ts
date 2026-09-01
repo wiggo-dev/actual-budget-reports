@@ -31,6 +31,7 @@ export const timeframeSchema = z.enum([
   "12m",
   "24m",
   "all",
+  "custom",
 ]);
 
 export const settingsSchema = z.object({

@@ -2,7 +2,15 @@ import { actual } from "@/lib/actual/client";
 import { formatLocalDate, integerToAmount, monthKey } from "@/lib/format";
 import { filterAccounts } from "@/lib/reports/filters";
 import { summarizeFlows } from "@/lib/reports/period-totals";
-import { monthsInWindow, type MonthWindow } from "@/lib/reports/timeframe";
+import {
+  monthStartsForRange,
+  type ReportRange,
+} from "@/lib/reports/report-range";
+
+const defaultRange: ReportRange = {
+  kind: "preset",
+  window: { count: 12, endOffset: 0 },
+};
 
 export type NetWorthPoint = {
   month: string;
@@ -11,13 +19,13 @@ export type NetWorthPoint = {
 
 export async function getNetWorthSeries(
   excludedAccountIds: string[],
-  window: MonthWindow = { count: 12, endOffset: 0 }
+  range: ReportRange = defaultRange
 ): Promise<NetWorthPoint[]> {
   const accounts = filterAccounts(
     await actual.getAccounts(),
     excludedAccountIds
   );
-  const monthStarts = monthsInWindow(window);
+  const monthStarts = monthStartsForRange(range);
   const points: NetWorthPoint[] = [];
 
   for (const monthStart of monthStarts) {
@@ -44,13 +52,13 @@ export async function getNetWorthSeries(
 
 export async function getIncomeExpenseRange(
   excludedAccountIds: string[],
-  window: MonthWindow = { count: 12, endOffset: 0 }
+  range: ReportRange = defaultRange
 ) {
   const accounts = filterAccounts(
     await actual.getAccounts(),
     excludedAccountIds
   );
-  const monthStarts = monthsInWindow(window);
+  const monthStarts = monthStartsForRange(range);
   const points: { month: string; income: number; expenses: number }[] = [];
 
   for (const monthStart of monthStarts) {

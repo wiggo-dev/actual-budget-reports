@@ -30,7 +30,6 @@ import {
 } from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatMoney } from "@/lib/format";
-import { timeframeLabel } from "@/lib/reports/timeframe";
 import { monthlySavingsRates, savingsRate } from "@/lib/reports/savings-rate";
 import { cn } from "@/lib/utils";
 
@@ -928,7 +927,7 @@ export function CashFlowChart({ compact = false }: { compact?: boolean }) {
 }
 
 export function useOverviewStats() {
-  const { trendTimeframe, spendingTimeframe } = useReportsContext();
+  const { trendScopeLabel, spendingScopeLabel } = useReportsContext();
   const netWorth = useReportData<{ month: string; netWorth: number }[]>(
     "net-worth",
     "trend"
@@ -987,7 +986,7 @@ export function useOverviewStats() {
     periodExpenses,
     periodSavingsRate,
     savingsRateSeries,
-    trendTimeframeLabel: timeframeLabel(trendTimeframe),
-    spendingTimeframeLabel: timeframeLabel(spendingTimeframe),
+    trendTimeframeLabel: trendScopeLabel,
+    spendingTimeframeLabel: spendingScopeLabel,
   };
 }

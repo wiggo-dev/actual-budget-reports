@@ -3,6 +3,10 @@ import {
   timeframeWindow,
   type MonthWindow,
 } from "@/lib/reports/timeframe";
+import {
+  parseCustomDateRange,
+  type ReportRange,
+} from "@/lib/reports/report-range";
 
 export type ReportAccount = {
   id: string;
@@ -41,6 +45,24 @@ export function parseMonths(
   fallback = 12
 ): number {
   return parseReportWindow(searchParams, fallback).count;
+}
+
+export function parseReportRange(
+  searchParams: URLSearchParams,
+  fallbackMonths = 12
+): ReportRange {
+  const custom = parseCustomDateRange(
+    searchParams.get("start"),
+    searchParams.get("end")
+  );
+  if (custom) {
+    return { kind: "custom", range: custom };
+  }
+
+  return {
+    kind: "preset",
+    window: parseReportWindow(searchParams, fallbackMonths),
+  };
 }
 
 export function parseReportWindow(

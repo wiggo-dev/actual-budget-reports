@@ -4,7 +4,6 @@ import {
   rowsToCsv,
 } from "@/lib/export-csv";
 import type { DashboardView } from "@/lib/dashboard-views";
-import { timeframeLabel, type Timeframe } from "@/lib/reports/timeframe";
 
 type ReportScope = "trend" | "spending" | "accounts";
 
@@ -125,10 +124,10 @@ export function cashFlowToCsv(
   );
 }
 
-function timeframeForView(
+function filenameScopeForView(
   view: Exclude<DashboardView, "overview">,
-  trendTimeframe: Timeframe,
-  spendingTimeframe: Timeframe
+  trendScopeLabel: string,
+  spendingScopeLabel: string
 ): string {
   if (view === "account-balances") {
     return "current";
@@ -138,16 +137,16 @@ function timeframeForView(
     view === "payee-spending" ||
     view === "budget-vs-actual"
   ) {
-    return `${timeframeLabel(spendingTimeframe)} + ${timeframeLabel(trendTimeframe)} trend`;
+    return `${spendingScopeLabel} + ${trendScopeLabel} trend`;
   }
-  return timeframeLabel(trendTimeframe);
+  return trendScopeLabel;
 }
 
 export async function buildReportCsvExport(
   view: Exclude<DashboardView, "overview">,
   queryStringFor: (scope: ReportScope) => string,
-  trendTimeframe: Timeframe,
-  spendingTimeframe: Timeframe
+  trendScopeLabel: string,
+  spendingScopeLabel: string
 ): Promise<{ filename: string; content: string }> {
   switch (view) {
     case "net-worth": {
@@ -159,7 +158,7 @@ export async function buildReportCsvExport(
         throw new Error("No net worth data to export.");
       }
       return {
-        filename: buildExportFilename(view, timeframeLabel(trendTimeframe)),
+        filename: buildExportFilename(view, trendScopeLabel),
         content: netWorthToCsv(data),
       };
     }
@@ -189,20 +188,20 @@ export async function buildReportCsvExport(
       const sections = [];
       if (mix.length) {
         sections.push({
-          title: `Spending mix (${timeframeLabel(spendingTimeframe)})`,
+          title: `Spending mix (${spendingScopeLabel})`,
           csv: spendingMixToCsv(mix),
         });
       }
       if (trend.points.length) {
         sections.push({
-          title: `Spending trend (${timeframeLabel(trendTimeframe)})`,
+          title: `Spending trend (${trendScopeLabel})`,
           csv: spendingTrendToCsv(trend),
         });
       }
       return {
         filename: buildExportFilename(
           view,
-          timeframeForView(view, trendTimeframe, spendingTimeframe)
+          filenameScopeForView(view, trendScopeLabel, spendingScopeLabel)
         ),
         content: joinCsvSections(sections),
       };
@@ -216,7 +215,7 @@ export async function buildReportCsvExport(
         throw new Error("No payee spending to export.");
       }
       return {
-        filename: buildExportFilename(view, timeframeLabel(spendingTimeframe)),
+        filename: buildExportFilename(view, spendingScopeLabel),
         content: payeeSpendingToCsv(data),
       };
     }
@@ -228,7 +227,7 @@ export async function buildReportCsvExport(
         throw new Error("No income or expense data to export.");
       }
       return {
-        filename: buildExportFilename(view, timeframeLabel(trendTimeframe)),
+        filename: buildExportFilename(view, trendScopeLabel),
         content: incomeVsExpensesToCsv(data),
       };
     }
@@ -241,7 +240,7 @@ export async function buildReportCsvExport(
         throw new Error("No budget data to export.");
       }
       return {
-        filename: buildExportFilename(view, timeframeLabel(spendingTimeframe)),
+        filename: buildExportFilename(view, spendingScopeLabel),
         content: budgetVsActualToCsv(data),
       };
     }
@@ -253,7 +252,7 @@ export async function buildReportCsvExport(
         throw new Error("No cash flow data to export.");
       }
       return {
-        filename: buildExportFilename(view, timeframeLabel(trendTimeframe)),
+        filename: buildExportFilename(view, trendScopeLabel),
         content: cashFlowToCsv(data),
       };
     }

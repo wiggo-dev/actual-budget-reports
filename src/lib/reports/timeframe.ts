@@ -1,7 +1,15 @@
 import { formatLocalDate } from "@/lib/format";
 
 export type Timeframe =
-  "this-month" | "last-month" | "2m" | "3m" | "6m" | "12m" | "24m" | "all";
+  | "this-month"
+  | "last-month"
+  | "2m"
+  | "3m"
+  | "6m"
+  | "12m"
+  | "24m"
+  | "all"
+  | "custom";
 
 export type MonthWindow = {
   /** Number of calendar months in the window. */
@@ -23,6 +31,7 @@ export const TIMEFRAMES: {
   { id: "12m", label: "12 months", window: { count: 12, endOffset: 0 } },
   { id: "24m", label: "24 months", window: { count: 24, endOffset: 0 } },
   { id: "all", label: "All time", window: { count: 120, endOffset: 0 } },
+  { id: "custom", label: "Custom range", window: { count: 1, endOffset: 0 } },
 ];
 
 export function timeframeWindow(timeframe: Timeframe): MonthWindow {
@@ -36,10 +45,16 @@ export function timeframeWindow(timeframe: Timeframe): MonthWindow {
 
 /** Count of months for query strings / legacy callers. */
 export function timeframeMonths(timeframe: Timeframe): number {
+  if (timeframe === "custom") {
+    return 1;
+  }
   return timeframeWindow(timeframe).count;
 }
 
 export function timeframeLabel(timeframe: Timeframe): string {
+  if (timeframe === "custom") {
+    return "Custom range";
+  }
   return TIMEFRAMES.find((item) => item.id === timeframe)?.label ?? "12 months";
 }
 

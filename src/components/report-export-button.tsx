@@ -13,7 +13,7 @@ import { buildReportCsvExport } from "@/lib/report-export";
 type ExportableView = Exclude<DashboardView, "overview">;
 
 export function ReportExportButton({ view }: { view: ExportableView }) {
-  const { queryStringFor, trendTimeframe, spendingTimeframe } =
+  const { queryStringFor, trendScopeLabel, spendingScopeLabel } =
     useReportsContext();
   const { enabled: privacyMode } = usePrivacyMode();
   const [exporting, setExporting] = useState(false);
@@ -32,8 +32,8 @@ export function ReportExportButton({ view }: { view: ExportableView }) {
       const { filename, content } = await buildReportCsvExport(
         view,
         queryStringFor,
-        trendTimeframe,
-        spendingTimeframe
+        trendScopeLabel,
+        spendingScopeLabel
       );
       downloadCsv(filename, content);
     } catch (exportError) {

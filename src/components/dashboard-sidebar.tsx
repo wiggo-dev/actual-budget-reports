@@ -30,12 +30,13 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { CustomDateRangeFields } from "@/components/custom-date-range-fields";
 import {
-  timeframeLabel,
-  TIMEFRAMES,
-  type Timeframe,
-} from "@/lib/reports/timeframe";
+  defaultCustomRange,
+  type CustomDateRange,
+} from "@/lib/reports/report-range";
 import { dashboardViews, type DashboardView } from "@/lib/dashboard-views";
+import { TIMEFRAMES, type Timeframe } from "@/lib/reports/timeframe";
 import { cn } from "@/lib/utils";
 
 export type { DashboardView };
@@ -79,8 +80,14 @@ function DashboardSidebarPanel({
     selectedPresetId,
     trendTimeframe,
     spendingTimeframe,
+    trendCustomRange,
+    spendingCustomRange,
+    trendScopeLabel,
+    spendingScopeLabel,
     setTrendTimeframe,
     setSpendingTimeframe,
+    setTrendCustomRange,
+    setSpendingCustomRange,
     toggleAccount,
     applyPreset,
     savePreset,
@@ -109,6 +116,10 @@ function DashboardSidebarPanel({
 
   const editTargetName =
     presets.find((preset) => preset.id === editTargetId)?.name ?? "";
+
+  const trendRange: CustomDateRange = trendCustomRange ?? defaultCustomRange();
+  const spendingRange: CustomDateRange =
+    spendingCustomRange ?? defaultCustomRange();
 
   return (
     <>
@@ -157,7 +168,7 @@ function DashboardSidebarPanel({
           >
             <SelectTrigger className="w-full rounded-2xl border-zinc-200">
               <SelectValue placeholder={loading ? "…" : "Trends"}>
-                {timeframeLabel(trendTimeframe)}
+                {trendScopeLabel}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
@@ -168,6 +179,13 @@ function DashboardSidebarPanel({
               ))}
             </SelectContent>
           </Select>
+          {trendTimeframe === "custom" ? (
+            <CustomDateRangeFields
+              idPrefix="trend"
+              value={trendRange}
+              onChange={setTrendCustomRange}
+            />
+          ) : null}
         </div>
 
         <div className="space-y-1.5">
@@ -185,7 +203,7 @@ function DashboardSidebarPanel({
           >
             <SelectTrigger className="w-full rounded-2xl border-zinc-200">
               <SelectValue placeholder={loading ? "…" : "Spending"}>
-                {timeframeLabel(spendingTimeframe)}
+                {spendingScopeLabel}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
@@ -196,6 +214,13 @@ function DashboardSidebarPanel({
               ))}
             </SelectContent>
           </Select>
+          {spendingTimeframe === "custom" ? (
+            <CustomDateRangeFields
+              idPrefix="spending"
+              value={spendingRange}
+              onChange={setSpendingCustomRange}
+            />
+          ) : null}
         </div>
 
         <div className="space-y-1.5">

@@ -31,6 +31,8 @@ function DashboardBody() {
     loading,
     trendTimeframe,
     spendingTimeframe,
+    trendCustomRange,
+    spendingCustomRange,
     selectedPresetId,
     excludedAccountIds,
   } = useReportsContext();
@@ -50,6 +52,8 @@ function DashboardBody() {
       view: activeView,
       trend: trendTimeframe,
       spending: spendingTimeframe,
+      trendCustom: trendCustomRange,
+      spendingCustom: spendingCustomRange,
       presetId: selectedPresetId,
       excludedAccountIds,
     }).toString();
@@ -68,7 +72,9 @@ function DashboardBody() {
     searchParams,
     selectedPresetId,
     spendingTimeframe,
+    spendingCustomRange,
     trendTimeframe,
+    trendCustomRange,
   ]);
 
   if (!configured) {

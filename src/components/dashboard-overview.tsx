@@ -16,7 +16,6 @@ import {
 import { ReportExportButton } from "@/components/report-export-button";
 import { useReportsContext } from "@/components/reports-provider";
 import { formatMoney } from "@/lib/format";
-import { timeframeLabel } from "@/lib/reports/timeframe";
 import type { DashboardView } from "@/lib/dashboard-views";
 
 function pct(value: number) {
@@ -239,9 +238,9 @@ export function DashboardReportView({
     "overview"
   >;
 }) {
-  const { trendTimeframe, spendingTimeframe } = useReportsContext();
-  const trendRange = timeframeLabel(trendTimeframe);
-  const spendingRange = timeframeLabel(spendingTimeframe);
+  const { trendScopeLabel, spendingScopeLabel } = useReportsContext();
+  const trendRange = trendScopeLabel;
+  const spendingRange = spendingScopeLabel;
 
   switch (view) {
     case "net-worth":

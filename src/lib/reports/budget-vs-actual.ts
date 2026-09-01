@@ -1,7 +1,10 @@
 import { actual } from "@/lib/actual/client";
 import { formatLocalDate, integerToAmount, monthKey } from "@/lib/format";
 import { filterAccounts } from "@/lib/reports/filters";
-import { monthsInWindow, type MonthWindow } from "@/lib/reports/timeframe";
+import {
+  monthStartsForRange,
+  type ReportRange,
+} from "@/lib/reports/report-range";
 
 export type BudgetActualRow = {
   category: string;
@@ -146,7 +149,7 @@ export function buildBudgetVsActualReport(
 
 export async function getBudgetVsActual(
   excludedAccountIds: string[],
-  window: MonthWindow = { count: 1, endOffset: 0 }
+  range: ReportRange = { kind: "preset", window: { count: 1, endOffset: 0 } }
 ): Promise<BudgetVsActualReport> {
   const accounts = filterAccounts(
     await actual.getAccounts(),
@@ -158,7 +161,7 @@ export async function getBudgetVsActual(
       category.name,
     ])
   );
-  const monthStarts = monthsInWindow(window);
+  const monthStarts = monthStartsForRange(range);
   const months: BudgetMonthInput[] = [];
 
   for (const monthStart of monthStarts) {

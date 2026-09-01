@@ -1,7 +1,10 @@
 import { actual } from "@/lib/actual/client";
 import { formatLocalDate, integerToAmount } from "@/lib/format";
 import { filterAccounts } from "@/lib/reports/filters";
-import { dateRangeForWindow, type MonthWindow } from "@/lib/reports/timeframe";
+import {
+  dateBoundsForRange,
+  type ReportRange,
+} from "@/lib/reports/report-range";
 
 export type PayeeSpendTransaction = {
   id: string;
@@ -46,7 +49,7 @@ export function rankPayeeSpend(
 
 export async function getPayeeSpending(
   excludedAccountIds: string[],
-  window: MonthWindow = { count: 1, endOffset: 0 }
+  range: ReportRange = { kind: "preset", window: { count: 1, endOffset: 0 } }
 ): Promise<PayeeSpendRow[]> {
   const accounts = filterAccounts(
     await actual.getAccounts(),
@@ -55,7 +58,7 @@ export async function getPayeeSpending(
   const payeeNames = new Map(
     (await actual.getPayees()).map((payee) => [payee.id, payee.name])
   );
-  const { start, end } = dateRangeForWindow(window);
+  const { start, end } = dateBoundsForRange(range);
   const transactions: PayeeSpendTransaction[] = [];
 
   for (const account of accounts) {
@@ -93,7 +96,7 @@ export type TransactionListFilters = {
 
 export async function getFilteredTransactions(
   excludedAccountIds: string[],
-  window: MonthWindow,
+  range: ReportRange,
   filters: TransactionListFilters = {}
 ): Promise<TransactionListRow[]> {
   const accounts = filterAccounts(
@@ -113,7 +116,7 @@ export async function getFilteredTransactions(
     ])
   );
 
-  let { start, end } = dateRangeForWindow(window);
+  let { start, end } = dateBoundsForRange(range);
   if (filters.month) {
     const [year, month] = filters.month.split("-").map(Number);
     if (year && month) {

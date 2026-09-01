@@ -1,5 +1,5 @@
 import { getIncomeExpenseRange } from "@/lib/reports/net-worth";
-import type { MonthWindow } from "@/lib/reports/timeframe";
+import type { ReportRange } from "@/lib/reports/report-range";
 
 export type IncomeExpensePoint = {
   month: string;
@@ -9,7 +9,10 @@ export type IncomeExpensePoint = {
 
 export async function getIncomeVsExpenses(
   excludedAccountIds: string[],
-  window: MonthWindow = { count: 12, endOffset: 0 }
+  range: ReportRange = {
+    kind: "preset",
+    window: { count: 12, endOffset: 0 },
+  }
 ): Promise<IncomeExpensePoint[]> {
-  return getIncomeExpenseRange(excludedAccountIds, window);
+  return getIncomeExpenseRange(excludedAccountIds, range);
 }

@@ -2,10 +2,10 @@ import { actual } from "@/lib/actual/client";
 import { formatLocalDate, integerToAmount, monthKey } from "@/lib/format";
 import { filterAccounts } from "@/lib/reports/filters";
 import {
-  dateRangeForWindow,
-  monthsInWindow,
-  type MonthWindow,
-} from "@/lib/reports/timeframe";
+  dateBoundsForRange,
+  monthStartsForRange,
+  type ReportRange,
+} from "@/lib/reports/report-range";
 
 export type CategorySpendRow = {
   category: string;
@@ -69,14 +69,14 @@ async function loadCategoryNames() {
 
 export async function getSpendingByCategory(
   excludedAccountIds: string[],
-  window: MonthWindow = { count: 1, endOffset: 0 }
+  range: ReportRange = { kind: "preset", window: { count: 1, endOffset: 0 } }
 ): Promise<CategorySpendRow[]> {
   const accounts = filterAccounts(
     await actual.getAccounts(),
     excludedAccountIds
   );
   const categoryNames = await loadCategoryNames();
-  const { start, end } = dateRangeForWindow(window);
+  const { start, end } = dateBoundsForRange(range);
   const transactions: SpendTransaction[] = [];
 
   for (const account of accounts) {
@@ -89,7 +89,10 @@ export async function getSpendingByCategory(
 
 export async function getSpendingByCategoryTrend(
   excludedAccountIds: string[],
-  window: MonthWindow = { count: 12, endOffset: 0 },
+  range: ReportRange = {
+    kind: "preset",
+    window: { count: 12, endOffset: 0 },
+  },
   topCategories = 7
 ): Promise<SpendingTrendSeries> {
   const accounts = filterAccounts(
@@ -97,7 +100,7 @@ export async function getSpendingByCategoryTrend(
     excludedAccountIds
   );
   const categoryNames = await loadCategoryNames();
-  const monthStarts = monthsInWindow(window);
+  const monthStarts = monthStartsForRange(range);
   const monthKeys = monthStarts.map((month) => monthKey(month));
 
   const perMonth = new Map<string, Map<string, number>>();

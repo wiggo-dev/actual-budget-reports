@@ -13,6 +13,12 @@ import {
 
 import type { AccountPreset, Settings } from "@/lib/settings/types";
 import { readDashboardUrlState } from "@/lib/dashboard-url";
+import {
+  defaultCustomRange,
+  isValidCustomRange,
+  type CustomDateRange,
+} from "@/lib/reports/report-range";
+import { scopeLabel } from "@/lib/reports/scope-label";
 import { timeframeMonths, type Timeframe } from "@/lib/reports/timeframe";
 import { createId } from "@/lib/utils";
 import { useSearchParams } from "next/navigation";
@@ -33,8 +39,14 @@ type ReportsContextValue = {
   selectedPresetId: string | null;
   trendTimeframe: Timeframe;
   spendingTimeframe: Timeframe;
+  trendCustomRange: CustomDateRange | null;
+  spendingCustomRange: CustomDateRange | null;
   setTrendTimeframe: (timeframe: Timeframe) => void;
   setSpendingTimeframe: (timeframe: Timeframe) => void;
+  setTrendCustomRange: (range: CustomDateRange) => void;
+  setSpendingCustomRange: (range: CustomDateRange) => void;
+  trendScopeLabel: string;
+  spendingScopeLabel: string;
   currency: string;
   loading: boolean;
   error: string | null;
@@ -74,13 +86,19 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 
 function buildQueryString(
   excludedAccountIds: string[],
-  timeframe?: Timeframe
+  timeframe?: Timeframe,
+  customRange?: CustomDateRange | null
 ): string {
   const params = new URLSearchParams();
   for (const id of excludedAccountIds) {
     params.append("excludedAccountIds", id);
   }
-  if (timeframe) {
+  if (timeframe === "custom") {
+    if (customRange && isValidCustomRange(customRange)) {
+      params.set("start", customRange.start);
+      params.set("end", customRange.end);
+    }
+  } else if (timeframe) {
     params.set("months", String(timeframeMonths(timeframe)));
     params.set("timeframe", timeframe);
   }
@@ -106,6 +124,10 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
   const [spendingTimeframe, setSpendingTimeframeState] = useState<Timeframe>(
     () => initialUrl.spending ?? "this-month"
   );
+  const [trendCustomRange, setTrendCustomRangeState] =
+    useState<CustomDateRange | null>(() => initialUrl.trendCustom ?? null);
+  const [spendingCustomRange, setSpendingCustomRangeState] =
+    useState<CustomDateRange | null>(() => initialUrl.spendingCustom ?? null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [configured, setConfigured] = useState(true);
@@ -190,6 +212,8 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
       setSpendingTimeframeState(
         url.spending ?? savedSettings.spendingTimeframe ?? "this-month"
       );
+      setTrendCustomRangeState(url.trendCustom ?? null);
+      setSpendingCustomRangeState(url.spendingCustom ?? null);
 
       const urlPreset =
         url.presetId &&
@@ -388,6 +412,12 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
   const setTrendTimeframe = useCallback(
     (next: Timeframe) => {
       setTrendTimeframeState(next);
+      if (next === "custom") {
+        setTrendCustomRangeState((current) => current ?? defaultCustomRange());
+        return;
+      }
+
+      setTrendCustomRangeState(null);
       if (settings) {
         void persistSettings({
           ...settings,
@@ -402,6 +432,14 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
   const setSpendingTimeframe = useCallback(
     (next: Timeframe) => {
       setSpendingTimeframeState(next);
+      if (next === "custom") {
+        setSpendingCustomRangeState(
+          (current) => current ?? defaultCustomRange()
+        );
+        return;
+      }
+
+      setSpendingCustomRangeState(null);
       if (settings) {
         void persistSettings({
           ...settings,
@@ -411,6 +449,17 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
     },
     [persistSettings, settings]
   );
+
+  const setTrendCustomRange = useCallback((range: CustomDateRange) => {
+    setTrendCustomRangeState(range);
+  }, []);
+
+  const setSpendingCustomRange = useCallback((range: CustomDateRange) => {
+    setSpendingCustomRangeState(range);
+  }, []);
+
+  const trendScopeLabel = scopeLabel(trendTimeframe, trendCustomRange);
+  const spendingScopeLabel = scopeLabel(spendingTimeframe, spendingCustomRange);
 
   const refreshData = useCallback(async () => {
     setSyncing(true);
@@ -440,14 +489,28 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
   const queryStringFor = useCallback(
     (scope: ReportScope) => {
       if (scope === "trend") {
-        return buildQueryString(excludedAccountIds, trendTimeframe);
+        return buildQueryString(
+          excludedAccountIds,
+          trendTimeframe,
+          trendCustomRange
+        );
       }
       if (scope === "spending") {
-        return buildQueryString(excludedAccountIds, spendingTimeframe);
+        return buildQueryString(
+          excludedAccountIds,
+          spendingTimeframe,
+          spendingCustomRange
+        );
       }
       return buildQueryString(excludedAccountIds);
     },
-    [excludedAccountIds, spendingTimeframe, trendTimeframe]
+    [
+      excludedAccountIds,
+      spendingCustomRange,
+      spendingTimeframe,
+      trendCustomRange,
+      trendTimeframe,
+    ]
   );
 
   const value = useMemo<ReportsContextValue>(
@@ -458,8 +521,14 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
       selectedPresetId,
       trendTimeframe,
       spendingTimeframe,
+      trendCustomRange,
+      spendingCustomRange,
       setTrendTimeframe,
       setSpendingTimeframe,
+      setTrendCustomRange,
+      setSpendingCustomRange,
+      trendScopeLabel,
+      spendingScopeLabel,
       currency,
       loading,
       error,
@@ -485,8 +554,14 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
       selectedPresetId,
       trendTimeframe,
       spendingTimeframe,
+      trendCustomRange,
+      spendingCustomRange,
       setTrendTimeframe,
       setSpendingTimeframe,
+      setTrendCustomRange,
+      setSpendingCustomRange,
+      trendScopeLabel,
+      spendingScopeLabel,
       currency,
       loading,
       error,
