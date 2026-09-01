@@ -4,7 +4,6 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prototype:dashboard": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
