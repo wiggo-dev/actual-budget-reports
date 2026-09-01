@@ -1,7 +1,7 @@
 "use client";
 
 import { Info, RefreshCw } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useReportsContext } from "@/components/reports-provider";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -31,6 +31,11 @@ import {
 } from "@/components/ui/tooltip";
 import { TIMEFRAMES, type Timeframe } from "@/lib/reports/timeframe";
 import { dashboardViews, type DashboardView } from "@/lib/dashboard-views";
+import {
+  formatSyncAge,
+  formatSyncTimestamp,
+  isSyncStale,
+} from "@/lib/sync-display";
 import { cn } from "@/lib/utils";
 
 export type { DashboardView };
@@ -81,12 +86,24 @@ export function DashboardSidebar({
     updatePreset,
     refreshData,
     loading,
+    lastSyncedAt,
+    syncIntervalMs,
+    syncing,
+    syncError,
   } = useReportsContext();
   const [presetName, setPresetName] = useState("");
   const [editPresetId, setEditPresetId] = useState<string | null>(null);
   const [editPresetName, setEditPresetName] = useState("");
   const [accountsOpen, setAccountsOpen] = useState(false);
-  const [syncing, setSyncing] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const syncStale =
+    lastSyncedAt != null && isSyncStale(lastSyncedAt, syncIntervalMs, now);
 
   const excludedNames = accounts
     .filter((account) => excludedAccountIds.includes(account.id))
@@ -105,11 +122,10 @@ export function DashboardSidebar({
     presets.find((preset) => preset.id === editTargetId)?.name ?? "";
 
   async function handleRefresh() {
-    setSyncing(true);
     try {
       await refreshData();
-    } finally {
-      setSyncing(false);
+    } catch {
+      // syncError is surfaced in the sidebar status line
     }
   }
 
@@ -396,8 +412,28 @@ export function DashboardSidebar({
           disabled={loading || syncing}
         >
           <RefreshCw className={syncing ? "animate-spin" : ""} />
-          Refresh
+          {syncing ? "Syncing…" : "Refresh"}
         </Button>
+
+        <div className="space-y-1 px-1 text-xs">
+          {syncError ? (
+            <p className="text-rose-600" role="alert">
+              Sync failed — {syncError}
+            </p>
+          ) : syncing ? (
+            <p className="text-zinc-500">Pulling latest from Actual…</p>
+          ) : lastSyncedAt != null ? (
+            <p
+              className={cn(syncStale ? "text-amber-700" : "text-zinc-500")}
+              title={formatSyncTimestamp(lastSyncedAt)}
+            >
+              {formatSyncAge(lastSyncedAt, now)}
+              {syncStale ? " · data may be stale" : ""}
+            </p>
+          ) : (
+            <p className="text-zinc-500">Not synced yet</p>
+          )}
+        </div>
 
         {excludedNames.length > 0 ? (
           <div className="space-y-2 text-xs text-zinc-500">

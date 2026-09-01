@@ -46,6 +46,10 @@ type ReportsContextValue = {
   refreshData: () => Promise<void>;
   queryStringFor: (scope: ReportScope) => string;
   refreshCounter: number;
+  lastSyncedAt: number | null;
+  syncIntervalMs: number;
+  syncing: boolean;
+  syncError: string | null;
 };
 
 const ReportsContext = createContext<ReportsContextValue | null>(null);
@@ -97,7 +101,22 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
   const [configured, setConfigured] = useState(true);
   const [refreshCounter, setRefreshCounter] = useState(0);
   const [currency, setCurrency] = useState("GBP");
+  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
+  const [syncIntervalMs, setSyncIntervalMs] = useState(300_000);
+  const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
   const urlOverridesRef = useRef(initialUrlOverrides());
+
+  const fetchSyncStatus = useCallback(async () => {
+    const response = await fetch("/api/sync/status");
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.error ?? "Failed to read sync status");
+    }
+    const status = payload.data as { syncedAt: number; syncIntervalMs: number };
+    setLastSyncedAt(status.syncedAt);
+    setSyncIntervalMs(status.syncIntervalMs);
+  }, []);
 
   const persistSettings = useCallback(async (next: Settings) => {
     try {
@@ -138,6 +157,7 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
           currency: "GBP",
         })),
       ]);
+      await fetchSyncStatus().catch(() => undefined);
 
       const openAccounts = accountRows.filter((account) => !account.closed);
       setAccounts(openAccounts);
@@ -188,13 +208,25 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [fetchSyncStatus]);
 
   useEffect(() => {
     // Mount fetch against Actual; setState after the network response is expected.
     // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional initial load
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!configured) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      void fetchSyncStatus().catch(() => undefined);
+    }, 60_000);
+
+    return () => window.clearInterval(timer);
+  }, [configured, fetchSyncStatus]);
 
   const toggleAccount = useCallback(
     (accountId: string) => {
@@ -364,11 +396,28 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
   );
 
   const refreshData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    await fetch("/api/sync", { method: "POST" });
-    setRefreshCounter((count) => count + 1);
-    await load();
+    setSyncing(true);
+    setSyncError(null);
+
+    try {
+      const response = await fetch("/api/sync", { method: "POST" });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Sync failed");
+      }
+
+      const result = payload.data as { syncedAt: number };
+      setLastSyncedAt(result.syncedAt);
+      setRefreshCounter((count) => count + 1);
+      await load();
+    } catch (refreshError) {
+      const message =
+        refreshError instanceof Error ? refreshError.message : "Sync failed";
+      setSyncError(message);
+      throw refreshError;
+    } finally {
+      setSyncing(false);
+    }
   }, [load]);
 
   const queryStringFor = useCallback(
@@ -406,6 +455,10 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
       refreshData,
       queryStringFor,
       refreshCounter,
+      lastSyncedAt,
+      syncIntervalMs,
+      syncing,
+      syncError,
     }),
     [
       accounts,
@@ -428,6 +481,10 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
       refreshData,
       queryStringFor,
       refreshCounter,
+      lastSyncedAt,
+      syncIntervalMs,
+      syncing,
+      syncError,
     ]
   );
 

@@ -79,6 +79,29 @@ export async function forceSync(): Promise<{ syncedAt: number }> {
   return syncIfNeeded(true);
 }
 
+export function getSyncStatus(): {
+  syncedAt: number | null;
+  syncIntervalMs: number;
+} {
+  const { SYNC_INTERVAL_MS } = getEnv();
+  return {
+    syncedAt: lastSyncAt > 0 ? lastSyncAt : null,
+    syncIntervalMs: SYNC_INTERVAL_MS,
+  };
+}
+
+export async function readSyncStatus(): Promise<{
+  syncedAt: number;
+  syncIntervalMs: number;
+}> {
+  await ensureActualReady();
+  const { SYNC_INTERVAL_MS } = getEnv();
+  return {
+    syncedAt: lastSyncAt,
+    syncIntervalMs: SYNC_INTERVAL_MS,
+  };
+}
+
 export async function getBudgetPreferences() {
   await ensureActualReady();
   return actual.getPreferences();
