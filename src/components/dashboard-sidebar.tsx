@@ -1,8 +1,9 @@
 "use client";
 
-import { Info, Menu, RefreshCw } from "lucide-react";
-import { useSyncExternalStore, useState } from "react";
+import { Info, Menu } from "lucide-react";
+import { useState } from "react";
 
+import { DashboardToolbar } from "@/components/dashboard-toolbar";
 import { useReportsContext } from "@/components/reports-provider";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -35,26 +36,10 @@ import {
   type Timeframe,
 } from "@/lib/reports/timeframe";
 import { dashboardViews, type DashboardView } from "@/lib/dashboard-views";
-import {
-  formatSyncAge,
-  formatSyncTimestamp,
-  isSyncStale,
-} from "@/lib/sync-display";
 import { cn } from "@/lib/utils";
 
 export type { DashboardView };
 export { dashboardViews };
-
-function useNow(intervalMs = 30_000): number | null {
-  return useSyncExternalStore(
-    (onStoreChange) => {
-      const timer = window.setInterval(onStoreChange, intervalMs);
-      return () => window.clearInterval(timer);
-    },
-    () => Date.now(),
-    () => null
-  );
-}
 
 function TimeframeInfo({ label, detail }: { label: string; detail: string }) {
   return (
@@ -101,24 +86,13 @@ function DashboardSidebarPanel({
     savePreset,
     renamePreset,
     updatePreset,
-    refreshData,
     loading,
-    lastSyncedAt,
-    syncIntervalMs,
-    syncing,
-    syncError,
     versionHealth,
   } = useReportsContext();
   const [presetName, setPresetName] = useState("");
   const [editPresetId, setEditPresetId] = useState<string | null>(null);
   const [editPresetName, setEditPresetName] = useState("");
   const [accountsOpen, setAccountsOpen] = useState(false);
-  const now = useNow();
-
-  const syncStale =
-    lastSyncedAt != null &&
-    now != null &&
-    isSyncStale(lastSyncedAt, syncIntervalMs, now);
 
   const excludedNames = accounts
     .filter((account) => excludedAccountIds.includes(account.id))
@@ -135,14 +109,6 @@ function DashboardSidebarPanel({
 
   const editTargetName =
     presets.find((preset) => preset.id === editTargetId)?.name ?? "";
-
-  async function handleRefresh() {
-    try {
-      await refreshData();
-    } catch {
-      // syncError is surfaced in the sidebar status line
-    }
-  }
 
   return (
     <>
@@ -423,45 +389,15 @@ function DashboardSidebarPanel({
           </DialogContent>
         </Dialog>
 
-        <Button
-          variant="secondary"
-          className="w-full rounded-2xl"
-          onClick={() => void handleRefresh()}
-          disabled={loading || syncing}
-        >
-          <RefreshCw className={syncing ? "animate-spin" : ""} />
-          {syncing ? "Syncing…" : "Refresh"}
-        </Button>
-
-        <div className="space-y-1 px-1 text-xs">
-          {syncError ? (
-            <p className="text-rose-600" role="alert">
-              Sync failed — {syncError}
-            </p>
-          ) : syncing ? (
-            <p className="text-zinc-500">Pulling latest from Actual…</p>
-          ) : lastSyncedAt != null ? (
-            <p
-              className={cn(syncStale ? "text-amber-700" : "text-zinc-500")}
-              title={formatSyncTimestamp(lastSyncedAt)}
-              suppressHydrationWarning
-            >
-              {now != null
-                ? formatSyncAge(lastSyncedAt, now)
-                : formatSyncTimestamp(lastSyncedAt)}
-              {syncStale && now != null ? " · data may be stale" : ""}
-            </p>
-          ) : (
-            <p className="text-zinc-500">Not synced yet</p>
-          )}
-          {versionHealth?.compatible === false ? (
+        {versionHealth?.compatible === false ? (
+          <div className="space-y-1 px-1 text-xs">
             <p className="text-amber-700" role="status">
               Actual API {versionHealth.api} vs server{" "}
               {versionHealth.server ?? "unknown"} — pin matching major.minor
               versions.
             </p>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
 
         {excludedNames.length > 0 ? (
           <div className="space-y-2 text-xs text-zinc-500">
@@ -515,6 +451,7 @@ export function DashboardMobileNav({
           </p>
           <p className="truncate font-semibold text-zinc-900">{activeLabel}</p>
         </div>
+        <DashboardToolbar compact />
       </header>
 
       <Dialog open={menuOpen} onOpenChange={setMenuOpen}>

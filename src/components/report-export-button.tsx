@@ -4,6 +4,7 @@ import { Download } from "lucide-react";
 import { useState } from "react";
 
 import { useReportsContext } from "@/components/reports-provider";
+import { usePrivacyMode } from "@/components/privacy-mode";
 import { Button } from "@/components/ui/button";
 import { downloadCsv } from "@/lib/export-csv";
 import type { DashboardView } from "@/lib/dashboard-views";
@@ -14,10 +15,16 @@ type ExportableView = Exclude<DashboardView, "overview">;
 export function ReportExportButton({ view }: { view: ExportableView }) {
   const { queryStringFor, trendTimeframe, spendingTimeframe } =
     useReportsContext();
+  const { enabled: privacyMode } = usePrivacyMode();
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleExport() {
+    if (privacyMode) {
+      setError("Turn off privacy mode to export CSV.");
+      return;
+    }
+
     setExporting(true);
     setError(null);
 
@@ -45,7 +52,8 @@ export function ReportExportButton({ view }: { view: ExportableView }) {
         variant="outline"
         size="sm"
         className="rounded-xl"
-        disabled={exporting}
+        disabled={exporting || privacyMode}
+        title={privacyMode ? "Turn off privacy mode to export CSV" : undefined}
         onClick={() => void handleExport()}
       >
         <Download className="size-4" />

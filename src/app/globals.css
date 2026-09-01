@@ -128,3 +128,16 @@
     @apply font-sans;
   }
 }
+
+/* Display-only privacy blur for screen sharing / screenshots. */
+html.privacy-mode [data-privacy-value],
+html.privacy-mode .tabular-nums,
+html.privacy-mode [data-slot="chart"] {
+  filter: blur(8px);
+  user-select: none;
+}
+
+html.privacy-mode [data-slot="chart"] {
+  filter: blur(10px);
+  pointer-events: none;
+}

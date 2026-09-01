@@ -12,6 +12,8 @@ import {
   DashboardOverview,
   DashboardReportView,
 } from "@/components/dashboard-overview";
+import { PrivacyModeProvider } from "@/components/privacy-mode";
+import { DashboardToolbar } from "@/components/dashboard-toolbar";
 import {
   ReportsProvider,
   useReportsContext,
@@ -91,6 +93,9 @@ function DashboardBody() {
       <DashboardSidebar active={activeView} onNavigate={setActiveView} />
       <div className="min-w-0 flex-1">
         <DashboardMobileNav active={activeView} onNavigate={setActiveView} />
+        <div className="sticky top-0 z-20 mb-4 hidden rounded-2xl border border-zinc-200/80 bg-white/90 px-3 py-2 shadow-sm backdrop-blur-sm md:block">
+          <DashboardToolbar />
+        </div>
         <main className="min-w-0 pb-4">
           {error ? (
             <div
@@ -122,7 +127,9 @@ export function Dashboard() {
     >
       <ReportsProvider>
         <TransactionDrilldownProvider>
-          <DashboardBody />
+          <PrivacyModeProvider>
+            <DashboardBody />
+          </PrivacyModeProvider>
         </TransactionDrilldownProvider>
       </ReportsProvider>
     </Suspense>

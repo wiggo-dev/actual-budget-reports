@@ -62,6 +62,7 @@ function SavingsRateSpark({
       className="mt-4 h-14 w-full"
       preserveAspectRatio="none"
       aria-hidden
+      data-privacy-value
     >
       <polygon
         points={area}
@@ -116,11 +117,17 @@ export function DashboardOverview() {
     <div className="grid gap-4 md:grid-cols-6">
       <div className="relative overflow-hidden rounded-[2rem] bg-linear-to-br from-emerald-700 via-teal-700 to-stone-900 p-8 text-white md:col-span-4 md:row-span-2">
         <p className="text-sm text-white/70">Net worth</p>
-        <p className="mt-2 text-5xl font-semibold tracking-tight md:text-6xl">
+        <p
+          className="mt-2 text-5xl font-semibold tracking-tight md:text-6xl"
+          data-privacy-value
+        >
           {stats.latestNetWorth != null ? money(stats.latestNetWorth) : "—"}
         </p>
         {stats.netWorthDelta != null ? (
-          <p className="mt-3 inline-flex rounded-full bg-white/15 px-3 py-1 text-sm">
+          <p
+            className="mt-3 inline-flex rounded-full bg-white/15 px-3 py-1 text-sm"
+            data-privacy-value
+          >
             {pct(stats.netWorthDelta)} over{" "}
             {stats.trendTimeframeLabel.toLowerCase()}
           </p>
@@ -134,7 +141,10 @@ export function DashboardOverview() {
         <p className="text-sm text-zinc-500">
           Savings rate · {stats.trendTimeframeLabel.toLowerCase()}
         </p>
-        <p className="mt-2 text-3xl font-semibold text-zinc-900">
+        <p
+          className="mt-2 text-3xl font-semibold text-zinc-900"
+          data-privacy-value
+        >
           {stats.periodSavingsRate != null
             ? formatRate(stats.periodSavingsRate)
             : "—"}
@@ -149,10 +159,13 @@ export function DashboardOverview() {
 
       <div className="rounded-[2rem] bg-white p-6 shadow-sm md:col-span-2">
         <p className="text-sm text-zinc-500">{stats.spendingTimeframeLabel}</p>
-        <p className="mt-2 text-3xl font-semibold text-zinc-900">
+        <p
+          className="mt-2 text-3xl font-semibold text-zinc-900"
+          data-privacy-value
+        >
           {stats.periodExpenses != null ? money(stats.periodExpenses) : "—"}
         </p>
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-zinc-500" data-privacy-value>
           spent of{" "}
           {stats.periodIncome != null ? money(stats.periodIncome) : "—"}
         </p>
@@ -164,7 +177,7 @@ export function DashboardOverview() {
                 style={{ width: `${Math.min(spentRatio * 100, 100)}%` }}
               />
             </div>
-            <p className="mt-2 text-xs text-zinc-400">
+            <p className="mt-2 text-xs text-zinc-400" data-privacy-value>
               {Math.round(spentRatio * 100)}% of income used
             </p>
           </>
