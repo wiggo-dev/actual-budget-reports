@@ -8,6 +8,7 @@ import {
   CashFlowChart,
   IncomeVsExpensesChart,
   NetWorthChart,
+  PayeeSpendingChart,
   SpendingByCategoryChart,
   SpendingDonutChart,
   useOverviewStats,
@@ -19,6 +20,61 @@ import { timeframeLabel } from "@/lib/reports/timeframe";
 function pct(value: number) {
   const sign = value >= 0 ? "+" : "−";
   return `${sign}${(Math.abs(value) * 100).toFixed(1)}%`;
+}
+
+function formatRate(rate: number) {
+  const sign = rate < 0 ? "−" : "";
+  return `${sign}${Math.abs(rate * 100).toFixed(0)}%`;
+}
+
+function SavingsRateSpark({
+  series,
+}: {
+  series: { month: string; rate: number | null }[];
+}) {
+  const values = series
+    .map((point) => point.rate)
+    .filter((rate): rate is number => rate != null);
+
+  if (values.length < 2) {
+    return null;
+  }
+
+  const width = 240;
+  const height = 56;
+  const min = Math.min(...values, 0);
+  const max = Math.max(...values, 0);
+  const span = max - min || 1;
+  const coords = values.map((value, index) => {
+    const x = (index / (values.length - 1)) * width;
+    const y = height - ((value - min) / span) * (height - 8) - 4;
+    return `${x},${y}`;
+  });
+  const line = coords.join(" ");
+  const area = `0,${height} ${line} ${width},${height}`;
+  const positive = values[values.length - 1]! >= 0;
+
+  return (
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      className="mt-4 h-14 w-full"
+      preserveAspectRatio="none"
+      aria-hidden
+    >
+      <polygon
+        points={area}
+        fill={positive ? "rgba(5,150,105,0.12)" : "rgba(225,29,72,0.12)"}
+      />
+      <polyline
+        points={line}
+        fill="none"
+        stroke={positive ? "#059669" : "#e11d48"}
+        strokeWidth="2.5"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
 }
 
 export function DashboardOverview() {
@@ -70,6 +126,23 @@ export function DashboardOverview() {
         <div className="mt-8 opacity-90">
           <NetWorthChart compact />
         </div>
+      </div>
+
+      <div className="rounded-[2rem] bg-white p-6 shadow-sm md:col-span-2">
+        <p className="text-sm text-zinc-500">
+          Savings rate · {stats.trendTimeframeLabel.toLowerCase()}
+        </p>
+        <p className="mt-2 text-3xl font-semibold text-zinc-900">
+          {stats.periodSavingsRate != null
+            ? formatRate(stats.periodSavingsRate)
+            : "—"}
+        </p>
+        <p className="text-sm text-zinc-500">
+          {stats.periodSavingsRate == null
+            ? "Need income in this period"
+            : "of income kept"}
+        </p>
+        <SavingsRateSpark series={stats.savingsRateSeries} />
       </div>
 
       <div className="rounded-[2rem] bg-white p-6 shadow-sm md:col-span-2">
@@ -178,6 +251,15 @@ export function DashboardReportView({
           <SpendingByCategoryChart />
         </DashboardReportPanel>
       );
+    case "payee-spending":
+      return (
+        <DashboardReportPanel
+          title="Payee spending"
+          description={spendingRange}
+        >
+          <PayeeSpendingChart />
+        </DashboardReportPanel>
+      );
     case "income-vs-expenses":
       return (
         <DashboardReportPanel
@@ -191,7 +273,7 @@ export function DashboardReportView({
       return (
         <DashboardReportPanel
           title="Budget vs actual"
-          description="Current month"
+          description={spendingRange}
         >
           <BudgetVsActualChart />
         </DashboardReportPanel>

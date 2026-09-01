@@ -4,6 +4,7 @@ export const REPORT_IDS = [
   "net-worth",
   "account-balances",
   "spending-by-category",
+  "payee-spending",
   "income-vs-expenses",
   "budget-vs-actual",
   "cash-flow",

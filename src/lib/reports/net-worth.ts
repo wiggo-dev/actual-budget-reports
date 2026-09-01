@@ -1,6 +1,7 @@
 import { actual } from "@/lib/actual/client";
 import { formatLocalDate, integerToAmount, monthKey } from "@/lib/format";
 import { filterAccounts } from "@/lib/reports/filters";
+import { summarizeFlows } from "@/lib/reports/period-totals";
 import { monthsInWindow, type MonthWindow } from "@/lib/reports/timeframe";
 
 export type NetWorthPoint = {
@@ -57,26 +58,26 @@ export async function getIncomeExpenseRange(
     const end = formatLocalDate(
       new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0)
     );
-    let income = 0;
-    let expenses = 0;
+    const periodTxs = [];
 
     for (const account of accounts) {
       const transactions = await actual.getTransactions(account.id, start, end);
 
       for (const tx of transactions) {
-        const amount = integerToAmount(tx.amount);
-        if (amount >= 0) {
-          income += amount;
-        } else {
-          expenses += Math.abs(amount);
-        }
+        periodTxs.push({
+          id: tx.id,
+          accountId: account.id,
+          amount: integerToAmount(tx.amount),
+          transferId: tx.transfer_id,
+        });
       }
     }
 
+    const { inflow, outflow } = summarizeFlows(periodTxs);
     points.push({
       month: monthKey(monthStart),
-      income,
-      expenses,
+      income: inflow,
+      expenses: outflow,
     });
   }
 

@@ -15,6 +15,7 @@ import {
   ReportsProvider,
   useReportsContext,
 } from "@/components/reports-provider";
+import { TransactionDrilldownProvider } from "@/components/transaction-drilldown";
 import {
   buildDashboardSearchParams,
   parseDashboardView,
@@ -116,7 +117,9 @@ export function Dashboard() {
           <p className="p-6 text-sm text-zinc-500">Loading dashboard…</p>
         }
       >
-        <DashboardBody />
+        <TransactionDrilldownProvider>
+          <DashboardBody />
+        </TransactionDrilldownProvider>
       </Suspense>
     </ReportsProvider>
   );

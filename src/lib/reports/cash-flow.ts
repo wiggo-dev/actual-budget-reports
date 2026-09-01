@@ -1,6 +1,7 @@
 import { actual } from "@/lib/actual/client";
 import { formatLocalDate, integerToAmount, monthKey } from "@/lib/format";
 import { filterAccounts } from "@/lib/reports/filters";
+import { summarizeFlows } from "@/lib/reports/period-totals";
 import { monthsInWindow, type MonthWindow } from "@/lib/reports/timeframe";
 
 export type CashFlowPoint = {
@@ -25,22 +26,22 @@ export async function getCashFlow(
     const end = formatLocalDate(
       new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0)
     );
-    let inflow = 0;
-    let outflow = 0;
+    const periodTxs = [];
 
     for (const account of accounts) {
       const transactions = await actual.getTransactions(account.id, start, end);
 
       for (const tx of transactions) {
-        const amount = integerToAmount(tx.amount);
-        if (amount >= 0) {
-          inflow += amount;
-        } else {
-          outflow += Math.abs(amount);
-        }
+        periodTxs.push({
+          id: tx.id,
+          accountId: account.id,
+          amount: integerToAmount(tx.amount),
+          transferId: tx.transfer_id,
+        });
       }
     }
 
+    const { inflow, outflow } = summarizeFlows(periodTxs);
     points.push({
       month: monthKey(monthStart),
       inflow,

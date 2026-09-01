@@ -20,6 +20,7 @@ import {
   useReportData,
   useReportsContext,
 } from "@/components/reports-provider";
+import { useOptionalTransactionDrilldown } from "@/components/transaction-drilldown";
 import {
   ChartContainer,
   ChartLegend,
@@ -30,6 +31,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatMoney } from "@/lib/format";
 import { timeframeLabel } from "@/lib/reports/timeframe";
+import { monthlySavingsRates, savingsRate } from "@/lib/reports/savings-rate";
 import { cn } from "@/lib/utils";
 
 const netWorthConfig = {
@@ -278,6 +280,7 @@ function SpendingDonutView({
   compact = false,
   limit = 8,
   showLegend = false,
+  onCategoryClick,
 }: {
   data: SpendingRow[];
   money: (amount: number, options?: { hideFraction?: boolean }) => string;
@@ -285,6 +288,7 @@ function SpendingDonutView({
   compact?: boolean;
   limit?: number;
   showLegend?: boolean;
+  onCategoryClick?: (category: string) => void;
 }) {
   const [hiddenCategories, setHiddenCategories] = useState<Set<string>>(
     () => new Set()
@@ -353,6 +357,13 @@ function SpendingDonutView({
             animationBegin={0}
             animationDuration={280}
             animationEasing="ease-out"
+            cursor={onCategoryClick ? "pointer" : undefined}
+            onClick={(_, index) => {
+              const slice = chartData[index];
+              if (slice && onCategoryClick && slice.category !== "Other") {
+                onCategoryClick(slice.category);
+              }
+            }}
           >
             {chartData.map((item) => (
               <Cell key={item.category} fill={item.fill} />
@@ -422,14 +433,24 @@ function SpendingDonutView({
                   style={{ background: item.fill }}
                   onClick={() => toggleCategory(item.category)}
                 />
-                <span
+                <button
+                  type="button"
                   className={cn(
-                    "truncate text-zinc-700",
-                    hidden && "line-through"
+                    "truncate text-left text-zinc-700",
+                    hidden && "line-through",
+                    onCategoryClick &&
+                      item.category !== "Other" &&
+                      "hover:underline"
                   )}
+                  disabled={!onCategoryClick || item.category === "Other"}
+                  onClick={() => {
+                    if (onCategoryClick && item.category !== "Other") {
+                      onCategoryClick(item.category);
+                    }
+                  }}
                 >
                   {item.category}
-                </span>
+                </button>
                 <span className="shrink-0 font-mono tabular-nums text-zinc-900">
                   {money(item.amount)}
                 </span>
@@ -485,6 +506,7 @@ export function SpendingDonutChart({
 
 export function SpendingByCategoryChart() {
   const money = useMoney();
+  const drilldown = useOptionalTransactionDrilldown();
   const donut = useReportData<SpendingRow[]>(
     "spending-by-category",
     "spending"
@@ -523,7 +545,21 @@ export function SpendingByCategoryChart() {
   return (
     <div className="grid gap-10">
       {donut.data?.length ? (
-        <SpendingDonutView data={donut.data} money={money} showLegend />
+        <SpendingDonutView
+          data={donut.data}
+          money={money}
+          showLegend
+          onCategoryClick={
+            drilldown
+              ? (category) =>
+                  drilldown.openDrilldown({
+                    title: `Spending · ${category}`,
+                    category,
+                    scope: "spending",
+                  })
+              : undefined
+          }
+        />
       ) : (
         <ChartError message="No spending data for the spending timeframe." />
       )}
@@ -537,6 +573,17 @@ export function SpendingByCategoryChart() {
             data={points}
             accessibilityLayer
             margin={{ top: 8, right: 8, left: 4, bottom: 0 }}
+            onClick={(state) => {
+              const month = state?.activeLabel;
+              if (typeof month === "string" && drilldown) {
+                drilldown.openDrilldown({
+                  title: `Spending · ${month}`,
+                  month,
+                  scope: "trend",
+                });
+              }
+            }}
+            style={{ cursor: drilldown ? "pointer" : undefined }}
           >
             <CartesianGrid vertical={false} />
             <XAxis
@@ -583,6 +630,109 @@ export function SpendingByCategoryChart() {
       ) : (
         <ChartError message="No spending trend data for the trends timeframe." />
       )}
+    </div>
+  );
+}
+
+export function PayeeSpendingChart() {
+  const money = useMoney();
+  const drilldown = useOptionalTransactionDrilldown();
+  const { data, loading, error } = useReportData<
+    { payeeId: string | null; payee: string; amount: number }[]
+  >("payee-spending", "spending");
+
+  if (loading) return <ChartSkeleton />;
+  if (error) return <ChartError message={error} />;
+  if (!data?.length) {
+    return <ChartError message="No payee spending for this timeframe." />;
+  }
+
+  const chartData = data.slice(0, 12);
+  const config = {
+    amount: { label: "Spent", color: "#0d9488" },
+  } satisfies ChartConfig;
+
+  function openPayee(row: { payeeId: string | null; payee: string }) {
+    drilldown?.openDrilldown({
+      title: `Payee · ${row.payee}`,
+      payeeId: row.payeeId ?? undefined,
+      payee: row.payeeId ? undefined : row.payee,
+      scope: "spending",
+    });
+  }
+
+  return (
+    <div className="grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+      <ChartContainer config={config} className="h-[320px] w-full">
+        <BarChart
+          data={chartData}
+          layout="vertical"
+          accessibilityLayer
+          margin={{ left: 8, right: 8 }}
+        >
+          <CartesianGrid horizontal={false} />
+          <XAxis
+            type="number"
+            tickLine={false}
+            axisLine={false}
+            tickFormatter={(value) => money(Number(value))}
+          />
+          <YAxis
+            type="category"
+            dataKey="payee"
+            width={120}
+            tickLine={false}
+            axisLine={false}
+          />
+          <ChartTooltip content={<MoneyTooltip money={money} />} />
+          <Bar
+            dataKey="amount"
+            name="Spent"
+            fill="var(--color-amount)"
+            radius={8}
+            cursor={drilldown ? "pointer" : undefined}
+            onClick={(item) => {
+              const payload = item?.payload as
+                { payeeId: string | null; payee: string } | undefined;
+              if (payload) {
+                openPayee(payload);
+              }
+            }}
+          />
+        </BarChart>
+      </ChartContainer>
+
+      <div className="overflow-auto">
+        <table className="w-full text-left text-sm">
+          <thead className="text-xs tracking-wide text-zinc-500 uppercase">
+            <tr>
+              <th className="py-2 pr-3 font-medium">Payee</th>
+              <th className="py-2 text-right font-medium">Spent</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((row) => (
+              <tr
+                key={`${row.payeeId ?? row.payee}`}
+                className="border-t border-zinc-100"
+              >
+                <td className="py-2 pr-3">
+                  <button
+                    type="button"
+                    className="text-left text-zinc-900 hover:underline"
+                    onClick={() => openPayee(row)}
+                  >
+                    {row.payee}
+                  </button>
+                </td>
+                <td className="py-2 text-right font-mono tabular-nums text-zinc-900">
+                  {money(row.amount)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -635,40 +785,78 @@ export function IncomeVsExpensesChart() {
 
 export function BudgetVsActualChart() {
   const money = useMoney();
-  const { data, loading, error } = useReportData<
-    { category: string; budgeted: number; spent: number }[]
-  >("budget-vs-actual", "accounts");
+  const { data, loading, error } = useReportData<{
+    categories: { category: string; budgeted: number; spent: number }[];
+    history: { month: string; budgeted: number; spent: number }[];
+  }>("budget-vs-actual", "spending");
 
   if (loading) return <ChartSkeleton />;
   if (error) return <ChartError message={error} />;
-  if (!data?.length) return <ChartError message="No budget data this month." />;
+  if (!data?.categories.length)
+    return <ChartError message="No budget data for this timeframe." />;
+
+  const showHistory = data.history.length > 1;
 
   return (
-    <ChartContainer config={budgetConfig} className="h-[280px] w-full">
-      <BarChart data={data.slice(0, 10)} accessibilityLayer>
-        <CartesianGrid vertical={false} />
-        <XAxis dataKey="category" tickLine={false} axisLine={false} />
-        <YAxis
-          tickLine={false}
-          axisLine={false}
-          tickFormatter={(value) => money(Number(value))}
-        />
-        <ChartTooltip content={<MoneyTooltip money={money} />} />
-        <ChartLegend content={<ChartLegendContent />} />
-        <Bar
-          dataKey="budgeted"
-          name="Budgeted"
-          fill="var(--color-budgeted)"
-          radius={8}
-        />
-        <Bar
-          dataKey="spent"
-          name="Spent"
-          fill="var(--color-spent)"
-          radius={8}
-        />
-      </BarChart>
-    </ChartContainer>
+    <div className={cn("grid gap-6", showHistory && "lg:grid-cols-2")}>
+      <ChartContainer config={budgetConfig} className="h-[280px] w-full">
+        <BarChart data={data.categories.slice(0, 10)} accessibilityLayer>
+          <CartesianGrid vertical={false} />
+          <XAxis dataKey="category" tickLine={false} axisLine={false} />
+          <YAxis
+            tickLine={false}
+            axisLine={false}
+            tickFormatter={(value) => money(Number(value))}
+          />
+          <ChartTooltip content={<MoneyTooltip money={money} />} />
+          <ChartLegend content={<ChartLegendContent />} />
+          <Bar
+            dataKey="budgeted"
+            name="Budgeted"
+            fill="var(--color-budgeted)"
+            radius={8}
+          />
+          <Bar
+            dataKey="spent"
+            name="Spent"
+            fill="var(--color-spent)"
+            radius={8}
+          />
+        </BarChart>
+      </ChartContainer>
+      {showHistory ? (
+        <ChartContainer config={budgetConfig} className="h-[280px] w-full">
+          <BarChart data={data.history} accessibilityLayer>
+            <CartesianGrid vertical={false} />
+            <XAxis
+              dataKey="month"
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(value) => String(value).slice(5)}
+            />
+            <YAxis
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(value) => money(Number(value))}
+            />
+            <ChartTooltip content={<MoneyTooltip money={money} />} />
+            <ChartLegend content={<ChartLegendContent />} />
+            <Bar
+              dataKey="budgeted"
+              name="Budgeted"
+              fill="var(--color-budgeted)"
+              radius={8}
+            />
+            <Bar
+              dataKey="spent"
+              name="Spent"
+              fill="var(--color-spent)"
+              radius={8}
+            />
+          </BarChart>
+        </ChartContainer>
+      ) : null}
+    </div>
   );
 }
 
@@ -736,9 +924,12 @@ export function useOverviewStats() {
     "net-worth",
     "trend"
   );
-  const incomeExpenses = useReportData<
+  const spendingIncomeExpenses = useReportData<
     { month: string; income: number; expenses: number }[]
   >("income-vs-expenses", "spending");
+  const trendIncomeExpenses = useReportData<
+    { month: string; income: number; expenses: number }[]
+  >("income-vs-expenses", "trend");
 
   const latestNetWorth =
     netWorth.data?.[netWorth.data.length - 1]?.netWorth ?? null;
@@ -748,21 +939,45 @@ export function useOverviewStats() {
       ? (latestNetWorth - firstNetWorth) / Math.abs(firstNetWorth)
       : null;
 
-  const latestMonth = incomeExpenses.data?.[incomeExpenses.data.length - 1];
+  const latestMonth =
+    spendingIncomeExpenses.data?.[spendingIncomeExpenses.data.length - 1];
   const periodIncome =
-    incomeExpenses.data?.reduce((sum, row) => sum + row.income, 0) ?? null;
+    spendingIncomeExpenses.data?.reduce((sum, row) => sum + row.income, 0) ??
+    null;
   const periodExpenses =
-    incomeExpenses.data?.reduce((sum, row) => sum + row.expenses, 0) ?? null;
+    spendingIncomeExpenses.data?.reduce((sum, row) => sum + row.expenses, 0) ??
+    null;
+
+  const trendIncome =
+    trendIncomeExpenses.data?.reduce((sum, row) => sum + row.income, 0) ?? null;
+  const trendExpenses =
+    trendIncomeExpenses.data?.reduce((sum, row) => sum + row.expenses, 0) ??
+    null;
+  const periodSavingsRate =
+    trendIncome != null && trendExpenses != null
+      ? savingsRate(trendIncome, trendExpenses)
+      : null;
+  const savingsRateSeries = trendIncomeExpenses.data
+    ? monthlySavingsRates(trendIncomeExpenses.data)
+    : [];
 
   return {
-    loading: netWorth.loading || incomeExpenses.loading,
-    error: netWorth.error ?? incomeExpenses.error,
+    loading:
+      netWorth.loading ||
+      spendingIncomeExpenses.loading ||
+      trendIncomeExpenses.loading,
+    error:
+      netWorth.error ??
+      spendingIncomeExpenses.error ??
+      trendIncomeExpenses.error,
     latestNetWorth,
     netWorthDelta,
     spentThisMonth: latestMonth?.expenses ?? null,
     incomeThisMonth: latestMonth?.income ?? null,
     periodIncome,
     periodExpenses,
+    periodSavingsRate,
+    savingsRateSeries,
     trendTimeframeLabel: timeframeLabel(trendTimeframe),
     spendingTimeframeLabel: timeframeLabel(spendingTimeframe),
   };

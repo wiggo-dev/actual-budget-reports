@@ -2,8 +2,8 @@ import type { NextRequest } from "next/server";
 
 import { syncIfNeeded } from "@/lib/actual/client";
 import { withActual } from "@/lib/api";
-import { getBudgetVsActual } from "@/lib/reports/budget-vs-actual";
 import { parseExcludedIds, parseReportWindow } from "@/lib/reports/filters";
+import { getPayeeSpending } from "@/lib/reports/payee-spending";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +13,6 @@ export async function GET(request: NextRequest) {
 
   return withActual(async () => {
     await syncIfNeeded();
-    return getBudgetVsActual(excludedAccountIds, window);
+    return getPayeeSpending(excludedAccountIds, window);
   });
 }

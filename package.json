@@ -11,6 +11,8 @@
     "typecheck": "next typegen && tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "prepare": "husky"
   },
   "dependencies": {
@@ -33,6 +35,7 @@
     "@commitlint/cli": "^20.4.2",
     "@commitlint/config-conventional": "^20.4.2",
     "@tailwindcss/postcss": "^4",
+    "@total-typescript/shoehorn": "^0.1.2",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
@@ -43,7 +46,8 @@
     "lint-staged": "^16.3.2",
     "prettier": "^3.8.1",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.11"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,mjs,json,md,css,yml,yaml}": "prettier --write"

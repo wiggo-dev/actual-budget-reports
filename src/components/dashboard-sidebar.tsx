@@ -170,7 +170,7 @@ export function DashboardSidebar({
         <div className="space-y-1.5">
           <TimeframeInfo
             label="Spending"
-            detail="Applies to category spending mix and totals."
+            detail="Applies to category spending mix, totals, and budget vs actual."
           />
           <Select
             value={spendingTimeframe}
