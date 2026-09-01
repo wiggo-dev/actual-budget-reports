@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.0
+
+### Minor Changes
+
+- 89154c8: Add an upcoming scheduled transactions overview card and let users show or hide overview modules with persisted preferences.
+
 ## 1.3.0
 
 ### Minor Changes
