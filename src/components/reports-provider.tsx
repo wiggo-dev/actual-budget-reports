@@ -1068,15 +1068,13 @@ export function usePriorYearReportData<T>(
     useReportsContext();
   const priorQueryString = priorYearQueryStringFor(scope, extraParams);
   const extraKey = extraParams ? JSON.stringify(extraParams) : "";
+  const enabled = configured && yoyCompare;
   const [data, setData] = useState<T | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!configured || !yoyCompare) {
-      setData(null);
-      setPending(false);
-      setError(null);
+    if (!enabled) {
       return;
     }
 
@@ -1111,16 +1109,9 @@ export function usePriorYearReportData<T>(
     return () => {
       cancelled = true;
     };
-  }, [
-    path,
-    priorQueryString,
-    configured,
-    refreshCounter,
-    extraKey,
-    yoyCompare,
-  ]);
+  }, [path, priorQueryString, enabled, refreshCounter, extraKey]);
 
-  const loading = configured && yoyCompare && pending && data === null;
+  const loading = enabled && pending && data === null;
 
-  return { data, loading, error };
+  return { data: enabled ? data : null, loading, error };
 }
