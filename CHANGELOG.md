@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.1
+
+### Patch Changes
+
+- 31ae076: Extend the health endpoint with sync metadata and API/server version compatibility, and add unit tests for timeframe, filter, and spending helpers.
+- 31ae076: Add mobile navigation drawer and responsive dashboard layout.
+- 0bbaf85: Show last sync time in the sidebar with stale and error states, and add a sync status API.
+
 ## 1.0.0
 
 ### Major Changes
