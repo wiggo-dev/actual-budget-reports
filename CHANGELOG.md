@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.4
+
+### Patch Changes
+
+- c58903c: Bump @actual-app/api to 26.9.0 to match Actual server 26.9.x.
+
 ## 1.5.3
 
 ### Patch Changes
