@@ -12,6 +12,46 @@ export type CategorySpendRow = {
   amount: number;
 };
 
+export type SpendTransaction = {
+  amount: number;
+  category?: unknown;
+};
+
+export function resolveCategoryName(
+  categoryId: string | undefined,
+  categoryNames: Map<string, string>
+): string {
+  if (!categoryId) {
+    return "Uncategorized";
+  }
+  return categoryNames.get(categoryId) ?? "Uncategorized";
+}
+
+export function aggregateCategorySpend(
+  transactions: SpendTransaction[],
+  categoryNames: Map<string, string>
+): CategorySpendRow[] {
+  const totals = new Map<string, number>();
+
+  for (const tx of transactions) {
+    if (tx.amount >= 0) {
+      continue;
+    }
+
+    const categoryId =
+      typeof tx.category === "string" ? tx.category : undefined;
+    const category = resolveCategoryName(categoryId, categoryNames);
+    totals.set(
+      category,
+      (totals.get(category) ?? 0) + integerToAmount(tx.amount)
+    );
+  }
+
+  return [...totals.entries()]
+    .map(([category, amount]) => ({ category, amount: Math.abs(amount) }))
+    .sort((a, b) => b.amount - a.amount);
+}
+
 export type SpendingTrendPoint = {
   month: string;
   total: number;
@@ -27,16 +67,6 @@ async function loadCategoryNames() {
   return new Map(categories.map((category) => [category.id, category.name]));
 }
 
-function resolveCategoryName(
-  categoryId: string | undefined,
-  categoryNames: Map<string, string>
-) {
-  if (!categoryId) {
-    return "Uncategorized";
-  }
-  return categoryNames.get(categoryId) ?? "Uncategorized";
-}
-
 export async function getSpendingByCategory(
   excludedAccountIds: string[],
   window: MonthWindow = { count: 1, endOffset: 0 }
@@ -47,29 +77,14 @@ export async function getSpendingByCategory(
   );
   const categoryNames = await loadCategoryNames();
   const { start, end } = dateRangeForWindow(window);
-  const totals = new Map<string, number>();
+  const transactions: SpendTransaction[] = [];
 
   for (const account of accounts) {
-    const transactions = await actual.getTransactions(account.id, start, end);
-
-    for (const tx of transactions) {
-      if (tx.amount >= 0) {
-        continue;
-      }
-
-      const categoryId =
-        typeof tx.category === "string" ? tx.category : undefined;
-      const category = resolveCategoryName(categoryId, categoryNames);
-      totals.set(
-        category,
-        (totals.get(category) ?? 0) + integerToAmount(tx.amount)
-      );
-    }
+    const rows = await actual.getTransactions(account.id, start, end);
+    transactions.push(...rows);
   }
 
-  return [...totals.entries()]
-    .map(([category, amount]) => ({ category, amount: Math.abs(amount) }))
-    .sort((a, b) => b.amount - a.amount);
+  return aggregateCategorySpend(transactions, categoryNames);
 }
 
 export async function getSpendingByCategoryTrend(

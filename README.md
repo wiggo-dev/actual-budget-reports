@@ -132,6 +132,54 @@ Local cache and settings live under `.data/` (gitignored). Docker uses `/data` i
 | `pnpm build` / `pnpm start` | Production build |
 | `pnpm typecheck`            | TypeScript       |
 | `pnpm lint`                 | ESLint           |
+| `pnpm test`                 | Unit tests       |
+
+## Health check
+
+`GET /api/health` is the ops endpoint for container health checks and debugging.
+
+When Actual is **not** configured (missing env vars), the response stays minimal:
+
+```json
+{ "status": "ok", "actualConfigured": false }
+```
+
+When configured, the payload adds sync metadata and version compatibility:
+
+```json
+{
+  "status": "ok",
+  "actualConfigured": true,
+  "sync": {
+    "syncedAt": 1710000000000,
+    "syncIntervalMs": 300000,
+    "state": "ok"
+  },
+  "versions": {
+    "api": "26.8.1",
+    "server": "26.8.1",
+    "compatible": true,
+    "error": null
+  }
+}
+```
+
+| Field                 | Meaning                                                                                     |
+| --------------------- | ------------------------------------------------------------------------------------------- |
+| `sync.syncedAt`       | Unix ms of the last successful sync in this process (`null` if never synced yet)            |
+| `sync.state`          | `never` — no sync yet; `ok` — within `SYNC_INTERVAL_MS`; `stale` — older than the interval  |
+| `versions.api`        | Installed `@actual-app/api` version                                                         |
+| `versions.server`     | actual-server version from `/info` (`null` if unreachable)                                  |
+| `versions.compatible` | `true` when major.minor matches; `false` when skewed; `null` when server version is unknown |
+| `versions.error`      | `network-failure` when the server `/info` request failed                                    |
+
+Actual recommends pinning the same **major.minor** for the API client and sync server. The dashboard sidebar shows an amber warning when `versions.compatible` is `false`.
+
+Example Docker health check:
+
+```bash
+curl -sf http://localhost:3000/api/health | jq .
+```
 
 ## Environment variables
 

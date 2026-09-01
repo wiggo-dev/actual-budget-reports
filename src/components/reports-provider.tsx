@@ -51,6 +51,12 @@ type ReportsContextValue = {
   syncIntervalMs: number;
   syncing: boolean;
   syncError: string | null;
+  versionHealth: {
+    api: string;
+    server: string | null;
+    compatible: boolean | null;
+    error: string | null;
+  } | null;
 };
 
 const ReportsContext = createContext<ReportsContextValue | null>(null);
@@ -109,6 +115,8 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
   const [syncIntervalMs, setSyncIntervalMs] = useState(300_000);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [versionHealth, setVersionHealth] =
+    useState<ReportsContextValue["versionHealth"]>(null);
   const urlOverridesRef = useRef(initialUrl);
 
   useEffect(() => {
@@ -152,6 +160,7 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
       const health = await fetch("/api/health").then((r) => r.json());
       setError(null);
       setConfigured(Boolean(health.actualConfigured));
+      setVersionHealth(health.versions ?? null);
 
       if (!health.actualConfigured) {
         setLoading(false);
@@ -467,6 +476,7 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
       syncIntervalMs,
       syncing,
       syncError,
+      versionHealth,
     }),
     [
       accounts,
@@ -493,6 +503,7 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
       syncIntervalMs,
       syncing,
       syncError,
+      versionHealth,
     ]
   );
 

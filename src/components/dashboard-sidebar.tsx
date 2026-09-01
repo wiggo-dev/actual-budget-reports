@@ -103,6 +103,7 @@ function DashboardSidebarPanel({
     syncIntervalMs,
     syncing,
     syncError,
+    versionHealth,
   } = useReportsContext();
   const [presetName, setPresetName] = useState("");
   const [editPresetId, setEditPresetId] = useState<string | null>(null);
@@ -439,6 +440,13 @@ function DashboardSidebarPanel({
           ) : (
             <p className="text-zinc-500">Not synced yet</p>
           )}
+          {versionHealth?.compatible === false ? (
+            <p className="text-amber-700" role="status">
+              Actual API {versionHealth.api} vs server{" "}
+              {versionHealth.server ?? "unknown"} — pin matching major.minor
+              versions.
+            </p>
+          ) : null}
         </div>
 
         {excludedNames.length > 0 ? (

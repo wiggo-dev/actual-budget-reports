@@ -1,12 +1,9 @@
 import { NextResponse } from "next/server";
 
-import { isActualConfigured } from "@/lib/env";
+import { buildHealthPayload } from "@/lib/actual/health";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  return NextResponse.json({
-    status: "ok",
-    actualConfigured: isActualConfigured(),
-  });
+  return NextResponse.json(await buildHealthPayload());
 }
