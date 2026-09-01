@@ -17,16 +17,21 @@ export type NetWorthPoint = {
   netWorth: number;
 };
 
+export type NetWorthCompositionPoint = NetWorthPoint & {
+  onBudget: number;
+  offBudget: number;
+};
+
 export async function getNetWorthSeries(
   excludedAccountIds: string[],
   range: ReportRange = defaultRange
-): Promise<NetWorthPoint[]> {
+): Promise<NetWorthCompositionPoint[]> {
   const accounts = filterAccounts(
     await actual.getAccounts(),
     excludedAccountIds
   );
   const monthStarts = monthStartsForRange(range);
-  const points: NetWorthPoint[] = [];
+  const points: NetWorthCompositionPoint[] = [];
 
   for (const monthStart of monthStarts) {
     const cutoff = new Date(
@@ -34,16 +39,26 @@ export async function getNetWorthSeries(
       monthStart.getMonth() + 1,
       0
     );
-    let total = 0;
+    let onBudget = 0;
+    let offBudget = 0;
 
     for (const account of accounts) {
-      const balance = await actual.getAccountBalance(account.id, cutoff);
-      total += integerToAmount(balance);
+      const balance = integerToAmount(
+        await actual.getAccountBalance(account.id, cutoff)
+      );
+
+      if (account.offbudget) {
+        offBudget += balance;
+      } else {
+        onBudget += balance;
+      }
     }
 
     points.push({
       month: monthKey(monthStart),
-      netWorth: total,
+      onBudget,
+      offBudget,
+      netWorth: onBudget + offBudget,
     });
   }
 

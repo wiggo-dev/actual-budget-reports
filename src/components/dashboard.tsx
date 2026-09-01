@@ -34,6 +34,7 @@ function DashboardBody() {
     trendCustomRange,
     spendingCustomRange,
     spendingLevel,
+    yoyCompare,
     selectedPresetId,
     excludedAccountIds,
     excludedCategoryIds,
@@ -58,6 +59,7 @@ function DashboardBody() {
       trendCustom: trendCustomRange,
       spendingCustom: spendingCustomRange,
       spendingLevel,
+      yoyCompare,
       presetId: selectedPresetId,
       excludedAccountIds,
       excludedCategoryIds,
@@ -82,6 +84,7 @@ function DashboardBody() {
     spendingTimeframe,
     spendingCustomRange,
     spendingLevel,
+    yoyCompare,
     trendTimeframe,
     trendCustomRange,
   ]);

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import {
+  Area,
   Bar,
   BarChart,
   CartesianGrid,
@@ -17,8 +18,10 @@ import {
 } from "recharts";
 
 import {
+  usePriorYearReportData,
   useReportData,
   useReportsContext,
+  useYoYReportData,
 } from "@/components/reports-provider";
 import { useOptionalTransactionDrilldown } from "@/components/transaction-drilldown";
 import { Button } from "@/components/ui/button";
@@ -33,6 +36,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatMoney } from "@/lib/format";
 import { monthlySavingsRates, savingsRate } from "@/lib/reports/savings-rate";
 import type { SpendingAggregation } from "@/lib/reports/spending-by-category";
+import { mergeYoYSeries, yoyHelpText } from "@/lib/reports/yoy";
 import { cn } from "@/lib/utils";
 
 const netWorthOverviewConfig = {
@@ -43,6 +47,17 @@ const netWorthReportConfig = {
   netWorth: { label: "Net worth", color: "#0f766e" },
 } satisfies ChartConfig;
 
+const netWorthCompositionConfig = {
+  onBudget: { label: "On budget", color: "#0f766e" },
+  offBudget: { label: "Off budget", color: "#5eead4" },
+  netWorth: { label: "Total", color: "#134e4a" },
+} satisfies ChartConfig;
+
+const netWorthYoYConfig = {
+  netWorthCurrent: { label: "This year", color: "#0f766e" },
+  netWorthPrior: { label: "Last year", color: "#94a3b8" },
+} satisfies ChartConfig;
+
 const incomeExpenseConfig = {
   income: { label: "Income", color: "#059669" },
   expenses: { label: "Expenses", color: "#f59e0b" },
@@ -51,6 +66,18 @@ const incomeExpenseConfig = {
 const cashFlowConfig = {
   inflow: { label: "Inflow", color: "#065f46" },
   outflow: { label: "Outflow", color: "rgba(6,95,70,0.35)" },
+} satisfies ChartConfig;
+
+const cashFlowYoYConfig = {
+  inflowCurrent: { label: "Inflow (this year)", color: "#065f46" },
+  inflowPrior: { label: "Inflow (last year)", color: "#6ee7b7" },
+  outflowCurrent: { label: "Outflow (this year)", color: "#f59e0b" },
+  outflowPrior: { label: "Outflow (last year)", color: "#fcd34d" },
+} satisfies ChartConfig;
+
+const spendingYoYConfig = {
+  totalCurrent: { label: "Total (this year)", color: "#134e4a" },
+  totalPrior: { label: "Total (last year)", color: "#94a3b8" },
 } satisfies ChartConfig;
 
 const budgetConfig = {
@@ -149,6 +176,69 @@ function ChartError({ message }: { message: string }) {
   );
 }
 
+function ToggleGroup<T extends string>({
+  value,
+  options,
+  onChange,
+  label,
+}: {
+  value: T;
+  options: readonly [T, string][];
+  onChange: (value: T) => void;
+  label: string;
+}) {
+  return (
+    <div
+      className="inline-flex rounded-xl border border-zinc-200 bg-zinc-50 p-1 text-sm"
+      role="group"
+      aria-label={label}
+    >
+      {options.map(([option, optionLabel]) => (
+        <button
+          key={option}
+          type="button"
+          aria-pressed={value === option}
+          className={cn(
+            "rounded-lg px-3 py-1.5 font-medium transition-colors",
+            value === option
+              ? "bg-white text-zinc-900 shadow-sm"
+              : "text-zinc-500 hover:text-zinc-700"
+          )}
+          onClick={() => onChange(option)}
+        >
+          {optionLabel}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function YoYToggle({
+  enabled,
+  onChange,
+}: {
+  enabled: boolean;
+  onChange: (enabled: boolean) => void;
+}) {
+  return (
+    <ToggleGroup
+      value={enabled ? "on" : "off"}
+      options={
+        [
+          ["off", "Off"],
+          ["on", "YoY"],
+        ] as const
+      }
+      onChange={(value) => onChange(value === "on")}
+      label="Year-over-year comparison"
+    />
+  );
+}
+
+function YoYHelpText({ scopeLabel }: { scopeLabel: string }) {
+  return <p className="text-sm text-zinc-500">{yoyHelpText(scopeLabel)}</p>;
+}
+
 function AccountGroup({
   title,
   accounts,
@@ -187,6 +277,13 @@ function AccountGroup({
   );
 }
 
+type NetWorthCompositionPoint = {
+  month: string;
+  netWorth: number;
+  onBudget: number;
+  offBudget: number;
+};
+
 export function NetWorthChart({
   className,
   compact = false,
@@ -195,54 +292,186 @@ export function NetWorthChart({
   compact?: boolean;
 }) {
   const money = useMoney();
+  const { yoyCompare, setYoYCompare, trendScopeLabel } = useReportsContext();
   const { data, loading, error } =
-    useReportData<{ month: string; netWorth: number }[]>("net-worth");
+    useReportData<NetWorthCompositionPoint[]>("net-worth");
+  const yoy = useYoYReportData<NetWorthCompositionPoint>("net-worth");
+  const [viewMode, setViewMode] = useState<"total" | "composition">("total");
 
-  if (loading) return <ChartSkeleton className={className} />;
+  if (loading || (!compact && yoyCompare && yoy.loading)) {
+    return <ChartSkeleton className={className} />;
+  }
   if (error) return <ChartError message={error} />;
   if (!data?.length)
     return <ChartError message="No net worth data available." />;
 
   const lineColor = compact ? "#ecfccb" : "#0f766e";
 
-  return (
-    <ChartContainer
-      config={compact ? netWorthOverviewConfig : netWorthReportConfig}
-      className={cn(compact ? "h-36 w-full" : "h-[280px] w-full", className)}
-    >
-      <LineChart data={data} accessibilityLayer>
-        <CartesianGrid
-          vertical={false}
-          stroke={compact ? "rgba(255,255,255,0.12)" : undefined}
-        />
-        <XAxis
-          dataKey="month"
-          tickLine={false}
-          axisLine={false}
-          tick={{ fill: compact ? "rgba(255,255,255,0.65)" : undefined }}
-        />
-        {!compact ? (
-          <YAxis
+  if (compact) {
+    return (
+      <ChartContainer
+        config={netWorthOverviewConfig}
+        className={cn("h-36 w-full", className)}
+      >
+        <LineChart data={data} accessibilityLayer>
+          <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.12)" />
+          <XAxis
+            dataKey="month"
             tickLine={false}
             axisLine={false}
-            tickFormatter={(value) => money(Number(value))}
+            tick={{ fill: "rgba(255,255,255,0.65)" }}
           />
+          <ChartTooltip
+            cursor={{ stroke: "rgba(255,255,255,0.25)" }}
+            content={<MoneyTooltip money={money} />}
+          />
+          <Line
+            type="monotone"
+            dataKey="netWorth"
+            name="Net worth"
+            stroke={lineColor}
+            strokeWidth={2.5}
+            dot={false}
+            activeDot={{ r: 4, fill: lineColor }}
+          />
+        </LineChart>
+      </ChartContainer>
+    );
+  }
+
+  const yoyData =
+    yoyCompare && yoy.currentData
+      ? mergeYoYSeries(yoy.currentData, yoy.priorData ?? [], ["netWorth"])
+      : null;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <ToggleGroup
+          value={viewMode}
+          options={
+            [
+              ["total", "Total"],
+              ["composition", "Composition"],
+            ] as const
+          }
+          onChange={setViewMode}
+          label="Net worth view"
+        />
+        {viewMode === "total" ? (
+          <YoYToggle enabled={yoyCompare} onChange={setYoYCompare} />
         ) : null}
-        <ChartTooltip
-          cursor={compact ? { stroke: "rgba(255,255,255,0.25)" } : undefined}
-          content={<MoneyTooltip money={money} />}
-        />
-        <Line
-          type="monotone"
-          dataKey="netWorth"
-          name="Net worth"
-          stroke={lineColor}
-          strokeWidth={compact ? 2.5 : 2.5}
-          dot={false}
-          activeDot={{ r: 4, fill: lineColor }}
-        />
-      </LineChart>
-    </ChartContainer>
+      </div>
+      {yoyCompare && viewMode === "total" ? (
+        <YoYHelpText scopeLabel={trendScopeLabel} />
+      ) : null}
+
+      {viewMode === "composition" ? (
+        <ChartContainer
+          config={netWorthCompositionConfig}
+          className={cn("h-[280px] w-full", className)}
+        >
+          <ComposedChart data={data} accessibilityLayer>
+            <CartesianGrid vertical={false} />
+            <XAxis dataKey="month" tickLine={false} axisLine={false} />
+            <YAxis
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(value) => money(Number(value))}
+            />
+            <ChartTooltip content={<MoneyTooltip money={money} />} />
+            <ChartLegend content={<ChartLegendContent />} />
+            <Area
+              type="monotone"
+              dataKey="onBudget"
+              name="On budget"
+              stackId="net-worth"
+              fill="var(--color-onBudget)"
+              stroke="var(--color-onBudget)"
+              fillOpacity={0.7}
+            />
+            <Area
+              type="monotone"
+              dataKey="offBudget"
+              name="Off budget"
+              stackId="net-worth"
+              fill="var(--color-offBudget)"
+              stroke="var(--color-offBudget)"
+              fillOpacity={0.55}
+            />
+            <Line
+              type="monotone"
+              dataKey="netWorth"
+              name="Total"
+              stroke="var(--color-netWorth)"
+              strokeWidth={2.5}
+              dot={false}
+            />
+          </ComposedChart>
+        </ChartContainer>
+      ) : yoyData ? (
+        <ChartContainer
+          config={netWorthYoYConfig}
+          className={cn("h-[280px] w-full", className)}
+        >
+          <LineChart data={yoyData} accessibilityLayer>
+            <CartesianGrid vertical={false} />
+            <XAxis dataKey="month" tickLine={false} axisLine={false} />
+            <YAxis
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(value) => money(Number(value))}
+            />
+            <ChartTooltip content={<MoneyTooltip money={money} />} />
+            <ChartLegend content={<ChartLegendContent />} />
+            <Line
+              type="monotone"
+              dataKey="netWorthCurrent"
+              name="This year"
+              stroke="var(--color-netWorthCurrent)"
+              strokeWidth={2.5}
+              dot={false}
+              connectNulls
+            />
+            <Line
+              type="monotone"
+              dataKey="netWorthPrior"
+              name="Last year"
+              stroke="var(--color-netWorthPrior)"
+              strokeWidth={2}
+              strokeDasharray="6 4"
+              dot={false}
+              connectNulls
+            />
+          </LineChart>
+        </ChartContainer>
+      ) : (
+        <ChartContainer
+          config={netWorthReportConfig}
+          className={cn("h-[280px] w-full", className)}
+        >
+          <LineChart data={data} accessibilityLayer>
+            <CartesianGrid vertical={false} />
+            <XAxis dataKey="month" tickLine={false} axisLine={false} />
+            <YAxis
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(value) => money(Number(value))}
+            />
+            <ChartTooltip content={<MoneyTooltip money={money} />} />
+            <Line
+              type="monotone"
+              dataKey="netWorth"
+              name="Net worth"
+              stroke={lineColor}
+              strokeWidth={2.5}
+              dot={false}
+              activeDot={{ r: 4, fill: lineColor }}
+            />
+          </LineChart>
+        </ChartContainer>
+      )}
+    </div>
   );
 }
 
@@ -555,8 +784,14 @@ export function SpendingDonutChart({
 export function SpendingByCategoryChart() {
   const money = useMoney();
   const drilldown = useOptionalTransactionDrilldown();
-  const { spendingLevel, setSpendingLevel, categoryGroups } =
-    useReportsContext();
+  const {
+    spendingLevel,
+    setSpendingLevel,
+    categoryGroups,
+    yoyCompare,
+    setYoYCompare,
+    trendScopeLabel,
+  } = useReportsContext();
   const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
 
   const expandedGroup = categoryGroups.find(
@@ -577,6 +812,10 @@ export function SpendingByCategoryChart() {
     points: Array<
       { month: string; total: number } & Record<string, number | string>
     >;
+  }>("spending-trend", "trend");
+  const yoyTrend = usePriorYearReportData<{
+    categories: string[];
+    points: Array<{ month: string; total: number }>;
   }>("spending-trend", "trend");
 
   function handleSpendingLevelChange(level: SpendingAggregation) {
@@ -604,7 +843,7 @@ export function SpendingByCategoryChart() {
     });
   }
 
-  if (donut.loading || trend.loading) {
+  if (donut.loading || trend.loading || (yoyCompare && yoyTrend.loading)) {
     return <ChartSkeleton className="h-[280px]" />;
   }
   if (donut.error) return <ChartError message={donut.error} />;
@@ -615,6 +854,20 @@ export function SpendingByCategoryChart() {
 
   const categories = trend.data?.categories ?? [];
   const points = trend.data?.points ?? [];
+  const yoyTrendData =
+    yoyCompare && trend.data?.points
+      ? mergeYoYSeries(
+          trend.data.points.map((point) => ({
+            month: point.month,
+            total: point.total,
+          })),
+          yoyTrend.data?.points.map((point) => ({
+            month: point.month,
+            total: point.total,
+          })) ?? [],
+          ["total"]
+        )
+      : null;
   const trendConfig = {
     ...Object.fromEntries(
       categories.map((category, index) => [
@@ -642,6 +895,7 @@ export function SpendingByCategoryChart() {
           value={spendingLevel}
           onChange={handleSpendingLevelChange}
         />
+        <YoYToggle enabled={yoyCompare} onChange={setYoYCompare} />
         {expandedGroup ? (
           <Button
             type="button"
@@ -680,73 +934,117 @@ export function SpendingByCategoryChart() {
       {points.length ? (
         <div className="space-y-2">
           <p className="text-sm text-zinc-500">
-            Monthly trend by{" "}
-            {spendingLevel === "group" ? "category group" : "category"}
+            {yoyCompare
+              ? "Monthly spending total vs last year"
+              : `Monthly trend by ${spendingLevel === "group" ? "category group" : "category"}`}
           </p>
-          <ChartContainer
-            config={trendConfig}
-            className="aspect-auto h-[320px] w-full"
-          >
-            <ComposedChart
-              data={points}
-              accessibilityLayer
-              margin={{ top: 8, right: 8, left: 4, bottom: 0 }}
-              onClick={(state) => {
-                const month = state?.activeLabel;
-                if (typeof month === "string" && drilldown) {
-                  drilldown.openDrilldown({
-                    title: `Spending · ${month}`,
-                    month,
-                    scope: "trend",
-                  });
-                }
-              }}
-              style={{ cursor: drilldown ? "pointer" : undefined }}
+          {yoyCompare ? <YoYHelpText scopeLabel={trendScopeLabel} /> : null}
+          {yoyTrendData ? (
+            <ChartContainer
+              config={spendingYoYConfig}
+              className="aspect-auto h-[320px] w-full"
             >
-              <CartesianGrid vertical={false} />
-              <XAxis
-                dataKey="month"
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(value) => String(value).slice(5)}
-              />
-              <YAxis
-                width={72}
-                tickLine={false}
-                axisLine={false}
-                tickMargin={8}
-                tickFormatter={(value) =>
-                  money(Number(value), { hideFraction: true })
-                }
-              />
-              <ChartTooltip content={<MoneyTooltip money={money} />} />
-              <ChartLegend content={<ChartLegendContent />} />
-              {categories.map((category, index) => (
-                <Bar
-                  key={category}
-                  dataKey={category}
-                  name={category}
-                  stackId="spend"
-                  fill={donutPalette[index % donutPalette.length]}
-                  maxBarSize={48}
-                  radius={
-                    index === categories.length - 1
-                      ? [6, 6, 0, 0]
-                      : [0, 0, 0, 0]
+              <LineChart data={yoyTrendData} accessibilityLayer>
+                <CartesianGrid vertical={false} />
+                <XAxis dataKey="month" tickLine={false} axisLine={false} />
+                <YAxis
+                  width={72}
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
+                  tickFormatter={(value) =>
+                    money(Number(value), { hideFraction: true })
                   }
                 />
-              ))}
-              <Line
-                type="monotone"
-                dataKey="total"
-                name="Total"
-                stroke="#134e4a"
-                strokeWidth={2.5}
-                dot={false}
-                activeDot={{ r: 4 }}
-              />
-            </ComposedChart>
-          </ChartContainer>
+                <ChartTooltip content={<MoneyTooltip money={money} />} />
+                <ChartLegend content={<ChartLegendContent />} />
+                <Line
+                  type="monotone"
+                  dataKey="totalCurrent"
+                  name="Total (this year)"
+                  stroke="var(--color-totalCurrent)"
+                  strokeWidth={2.5}
+                  dot={false}
+                  connectNulls
+                />
+                <Line
+                  type="monotone"
+                  dataKey="totalPrior"
+                  name="Total (last year)"
+                  stroke="var(--color-totalPrior)"
+                  strokeWidth={2}
+                  strokeDasharray="6 4"
+                  dot={false}
+                  connectNulls
+                />
+              </LineChart>
+            </ChartContainer>
+          ) : (
+            <ChartContainer
+              config={trendConfig}
+              className="aspect-auto h-[320px] w-full"
+            >
+              <ComposedChart
+                data={points}
+                accessibilityLayer
+                margin={{ top: 8, right: 8, left: 4, bottom: 0 }}
+                onClick={(state) => {
+                  const month = state?.activeLabel;
+                  if (typeof month === "string" && drilldown) {
+                    drilldown.openDrilldown({
+                      title: `Spending · ${month}`,
+                      month,
+                      scope: "trend",
+                    });
+                  }
+                }}
+                style={{ cursor: drilldown ? "pointer" : undefined }}
+              >
+                <CartesianGrid vertical={false} />
+                <XAxis
+                  dataKey="month"
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(value) => String(value).slice(5)}
+                />
+                <YAxis
+                  width={72}
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
+                  tickFormatter={(value) =>
+                    money(Number(value), { hideFraction: true })
+                  }
+                />
+                <ChartTooltip content={<MoneyTooltip money={money} />} />
+                <ChartLegend content={<ChartLegendContent />} />
+                {categories.map((category, index) => (
+                  <Bar
+                    key={category}
+                    dataKey={category}
+                    name={category}
+                    stackId="spend"
+                    fill={donutPalette[index % donutPalette.length]}
+                    maxBarSize={48}
+                    radius={
+                      index === categories.length - 1
+                        ? [6, 6, 0, 0]
+                        : [0, 0, 0, 0]
+                    }
+                  />
+                ))}
+                <Line
+                  type="monotone"
+                  dataKey="total"
+                  name="Total"
+                  stroke="#134e4a"
+                  strokeWidth={2.5}
+                  dot={false}
+                  activeDot={{ r: 4 }}
+                />
+              </ComposedChart>
+            </ChartContainer>
+          )}
         </div>
       ) : (
         <ChartError message="No spending trend data for the trends timeframe." />
@@ -983,59 +1281,137 @@ export function BudgetVsActualChart() {
 
 export function CashFlowChart({ compact = false }: { compact?: boolean }) {
   const money = useMoney();
+  const { yoyCompare, setYoYCompare, trendScopeLabel } = useReportsContext();
   const { data, loading, error } =
     useReportData<{ month: string; inflow: number; outflow: number }[]>(
       "cash-flow"
     );
+  const yoy = useYoYReportData<{
+    month: string;
+    inflow: number;
+    outflow: number;
+  }>("cash-flow");
 
-  if (loading)
+  if (loading || (!compact && yoyCompare && yoy.loading)) {
     return <ChartSkeleton className={compact ? "h-36" : undefined} />;
+  }
   if (error) return <ChartError message={error} />;
   if (!data?.length) return <ChartError message="No cash flow data." />;
 
   const chartData = compact ? data.slice(-6) : data;
+  const yoyData =
+    !compact && yoyCompare && yoy.currentData
+      ? mergeYoYSeries(yoy.currentData, yoy.priorData ?? [], [
+          "inflow",
+          "outflow",
+        ])
+      : null;
 
-  return (
-    <ChartContainer
-      config={cashFlowConfig}
-      className={cn(compact ? "h-36 w-full" : "h-[280px] w-full")}
-    >
-      <BarChart data={chartData} accessibilityLayer>
-        <CartesianGrid
-          vertical={false}
-          stroke={compact ? "transparent" : undefined}
-        />
-        <XAxis
-          dataKey="month"
-          tickLine={false}
-          axisLine={false}
-          tickFormatter={(value) =>
-            compact ? String(value).slice(5) : String(value)
-          }
-        />
-        {!compact ? (
-          <YAxis
+  if (compact) {
+    return (
+      <ChartContainer config={cashFlowConfig} className="h-36 w-full">
+        <BarChart data={chartData} accessibilityLayer>
+          <CartesianGrid vertical={false} stroke="transparent" />
+          <XAxis
+            dataKey="month"
             tickLine={false}
             axisLine={false}
-            tickFormatter={(value) => money(Number(value))}
+            tickFormatter={(value) => String(value).slice(5)}
           />
-        ) : null}
-        <ChartTooltip content={<MoneyTooltip money={money} />} />
-        {!compact ? <ChartLegend content={<ChartLegendContent />} /> : null}
-        <Bar
-          dataKey="inflow"
-          name="Inflow"
-          fill={compact ? "#065f46" : "var(--color-inflow)"}
-          radius={8}
-        />
-        <Bar
-          dataKey="outflow"
-          name="Outflow"
-          fill={compact ? "rgba(6,95,70,0.35)" : "var(--color-outflow)"}
-          radius={8}
-        />
-      </BarChart>
-    </ChartContainer>
+          <ChartTooltip content={<MoneyTooltip money={money} />} />
+          <Bar dataKey="inflow" name="Inflow" fill="#065f46" radius={8} />
+          <Bar
+            dataKey="outflow"
+            name="Outflow"
+            fill="rgba(6,95,70,0.35)"
+            radius={8}
+          />
+        </BarChart>
+      </ChartContainer>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-end gap-3">
+        <YoYToggle enabled={yoyCompare} onChange={setYoYCompare} />
+      </div>
+      {yoyCompare ? <YoYHelpText scopeLabel={trendScopeLabel} /> : null}
+
+      {yoyData ? (
+        <ChartContainer config={cashFlowYoYConfig} className="h-[280px] w-full">
+          <ComposedChart data={yoyData} accessibilityLayer>
+            <CartesianGrid vertical={false} />
+            <XAxis dataKey="month" tickLine={false} axisLine={false} />
+            <YAxis
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(value) => money(Number(value))}
+            />
+            <ChartTooltip content={<MoneyTooltip money={money} />} />
+            <ChartLegend content={<ChartLegendContent />} />
+            <Bar
+              dataKey="inflowCurrent"
+              name="Inflow (this year)"
+              fill="var(--color-inflowCurrent)"
+              radius={8}
+            />
+            <Bar
+              dataKey="outflowCurrent"
+              name="Outflow (this year)"
+              fill="var(--color-outflowCurrent)"
+              radius={8}
+            />
+            <Line
+              type="monotone"
+              dataKey="inflowPrior"
+              name="Inflow (last year)"
+              stroke="var(--color-inflowPrior)"
+              strokeWidth={2}
+              strokeDasharray="6 4"
+              dot={false}
+              connectNulls
+            />
+            <Line
+              type="monotone"
+              dataKey="outflowPrior"
+              name="Outflow (last year)"
+              stroke="var(--color-outflowPrior)"
+              strokeWidth={2}
+              strokeDasharray="6 4"
+              dot={false}
+              connectNulls
+            />
+          </ComposedChart>
+        </ChartContainer>
+      ) : (
+        <ChartContainer config={cashFlowConfig} className="h-[280px] w-full">
+          <BarChart data={chartData} accessibilityLayer>
+            <CartesianGrid vertical={false} />
+            <XAxis dataKey="month" tickLine={false} axisLine={false} />
+            <YAxis
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(value) => money(Number(value))}
+            />
+            <ChartTooltip content={<MoneyTooltip money={money} />} />
+            <ChartLegend content={<ChartLegendContent />} />
+            <Bar
+              dataKey="inflow"
+              name="Inflow"
+              fill="var(--color-inflow)"
+              radius={8}
+            />
+            <Bar
+              dataKey="outflow"
+              name="Outflow"
+              fill="var(--color-outflow)"
+              radius={8}
+            />
+          </BarChart>
+        </ChartContainer>
+      )}
+    </div>
   );
 }
 

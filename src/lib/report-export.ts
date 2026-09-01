@@ -41,11 +41,32 @@ async function fetchReportPayload(
 }
 
 export function netWorthToCsv(
-  rows: { month: string; netWorth: number }[]
+  rows: {
+    month: string;
+    netWorth: number;
+    onBudget?: number;
+    offBudget?: number;
+  }[]
 ): string {
+  const hasComposition = rows.some(
+    (row) => row.onBudget != null || row.offBudget != null
+  );
+
+  if (!hasComposition) {
+    return rowsToCsv(
+      ["month", "net_worth"],
+      rows.map((row) => [row.month, row.netWorth])
+    );
+  }
+
   return rowsToCsv(
-    ["month", "net_worth"],
-    rows.map((row) => [row.month, row.netWorth])
+    ["month", "on_budget", "off_budget", "net_worth"],
+    rows.map((row) => [
+      row.month,
+      row.onBudget ?? "",
+      row.offBudget ?? "",
+      row.netWorth,
+    ])
   );
 }
 

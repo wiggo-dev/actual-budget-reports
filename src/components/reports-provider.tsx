@@ -18,8 +18,9 @@ import {
   type CustomDateRange,
 } from "@/lib/reports/report-range";
 import { scopeLabel } from "@/lib/reports/scope-label";
-import { timeframeMonths, type Timeframe } from "@/lib/reports/timeframe";
 import type { SpendingAggregation } from "@/lib/reports/spending-by-category";
+import { priorYearScope } from "@/lib/reports/yoy";
+import { timeframeMonths, type Timeframe } from "@/lib/reports/timeframe";
 import { createId } from "@/lib/utils";
 import { useSearchParams } from "next/navigation";
 
@@ -60,11 +61,13 @@ type ReportsContextValue = {
   trendCustomRange: CustomDateRange | null;
   spendingCustomRange: CustomDateRange | null;
   spendingLevel: SpendingAggregation;
+  yoyCompare: boolean;
   setTrendTimeframe: (timeframe: Timeframe) => void;
   setSpendingTimeframe: (timeframe: Timeframe) => void;
   setTrendCustomRange: (range: CustomDateRange) => void;
   setSpendingCustomRange: (range: CustomDateRange) => void;
   setSpendingLevel: (level: SpendingAggregation) => void;
+  setYoYCompare: (enabled: boolean) => void;
   trendScopeLabel: string;
   spendingScopeLabel: string;
   currency: string;
@@ -80,6 +83,10 @@ type ReportsContextValue = {
   updatePreset: (presetId: string) => Promise<void>;
   refreshData: () => Promise<void>;
   queryStringFor: (
+    scope: ReportScope,
+    extraParams?: Record<string, string>
+  ) => string;
+  priorYearQueryStringFor: (
     scope: ReportScope,
     extraParams?: Record<string, string>
   ) => string;
@@ -232,6 +239,9 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
   const [spendingLevel, setSpendingLevelState] = useState<SpendingAggregation>(
     () => initialUrl.spendingLevel ?? "category"
   );
+  const [yoyCompare, setYoYCompareState] = useState(
+    () => initialUrl.yoyCompare ?? false
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [configured, setConfigured] = useState(true);
@@ -321,6 +331,7 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
       setTrendCustomRangeState(url.trendCustom ?? null);
       setSpendingCustomRangeState(url.spendingCustom ?? null);
       setSpendingLevelState(url.spendingLevel ?? "category");
+      setYoYCompareState(url.yoyCompare ?? false);
 
       const urlPreset =
         url.presetId &&
@@ -706,6 +717,10 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
     setSpendingLevelState(level);
   }, []);
 
+  const setYoYCompare = useCallback((enabled: boolean) => {
+    setYoYCompareState(enabled);
+  }, []);
+
   const trendScopeLabel = scopeLabel(trendTimeframe, trendCustomRange);
   const spendingScopeLabel = scopeLabel(spendingTimeframe, spendingCustomRange);
 
@@ -781,6 +796,32 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
     ]
   );
 
+  const priorYearQueryStringFor = useCallback(
+    (scope: ReportScope, extraParams?: Record<string, string>) => {
+      const timeframe =
+        scope === "spending" ? spendingTimeframe : trendTimeframe;
+      const customRange =
+        scope === "spending" ? spendingCustomRange : trendCustomRange;
+      const prior = priorYearScope(timeframe, customRange);
+
+      return buildQueryString(
+        reportFilters,
+        prior.timeframe,
+        prior.customRange,
+        spendingLevel,
+        extraParams
+      );
+    },
+    [
+      reportFilters,
+      spendingCustomRange,
+      spendingLevel,
+      spendingTimeframe,
+      trendCustomRange,
+      trendTimeframe,
+    ]
+  );
+
   const value = useMemo<ReportsContextValue>(
     () => ({
       accounts,
@@ -797,11 +838,13 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
       trendCustomRange,
       spendingCustomRange,
       spendingLevel,
+      yoyCompare,
       setTrendTimeframe,
       setSpendingTimeframe,
       setTrendCustomRange,
       setSpendingCustomRange,
       setSpendingLevel,
+      setYoYCompare,
       trendScopeLabel,
       spendingScopeLabel,
       currency,
@@ -817,6 +860,7 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
       updatePreset,
       refreshData,
       queryStringFor,
+      priorYearQueryStringFor,
       refreshCounter,
       lastSyncedAt,
       syncIntervalMs,
@@ -839,11 +883,13 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
       trendCustomRange,
       spendingCustomRange,
       spendingLevel,
+      yoyCompare,
       setTrendTimeframe,
       setSpendingTimeframe,
       setTrendCustomRange,
       setSpendingCustomRange,
       setSpendingLevel,
+      setYoYCompare,
       trendScopeLabel,
       spendingScopeLabel,
       currency,
@@ -859,6 +905,7 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
       updatePreset,
       refreshData,
       queryStringFor,
+      priorYearQueryStringFor,
       refreshCounter,
       lastSyncedAt,
       syncIntervalMs,
@@ -932,6 +979,148 @@ export function useReportData<T>(
   // Keep showing the previous chart until new data arrives; only block the
   // UI with a skeleton on the very first load for this hook instance.
   const loading = configured && pending && data === null;
+
+  return { data, loading, error };
+}
+
+export function useYoYReportData<T extends { month: string }>(
+  path: string,
+  scope: ReportScope = "trend",
+  extraParams?: Record<string, string>
+) {
+  const {
+    yoyCompare,
+    queryStringFor,
+    priorYearQueryStringFor,
+    configured,
+    refreshCounter,
+  } = useReportsContext();
+  const queryString = queryStringFor(scope, extraParams);
+  const priorQueryString = priorYearQueryStringFor(scope, extraParams);
+  const extraKey = extraParams ? JSON.stringify(extraParams) : "";
+  const [currentData, setCurrentData] = useState<T[] | null>(null);
+  const [priorData, setPriorData] = useState<T[] | null>(null);
+  const [pending, setPending] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!configured) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadReport() {
+      setPending(true);
+      setError(null);
+
+      try {
+        const current = await fetchJson<T[]>(
+          `/api/reports/${path}${queryString}`
+        );
+        const prior = yoyCompare
+          ? await fetchJson<T[]>(`/api/reports/${path}${priorQueryString}`)
+          : null;
+
+        if (!cancelled) {
+          setCurrentData(current);
+          setPriorData(prior);
+        }
+      } catch (loadError) {
+        if (!cancelled) {
+          setError(
+            loadError instanceof Error ? loadError.message : "Failed to load"
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setPending(false);
+        }
+      }
+    }
+
+    void loadReport();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    path,
+    queryString,
+    priorQueryString,
+    configured,
+    refreshCounter,
+    extraKey,
+    yoyCompare,
+  ]);
+
+  const loading = configured && pending && currentData === null;
+
+  return { currentData, priorData, loading, error, yoyCompare };
+}
+
+export function usePriorYearReportData<T>(
+  path: string,
+  scope: ReportScope = "trend",
+  extraParams?: Record<string, string>
+) {
+  const { yoyCompare, priorYearQueryStringFor, configured, refreshCounter } =
+    useReportsContext();
+  const priorQueryString = priorYearQueryStringFor(scope, extraParams);
+  const extraKey = extraParams ? JSON.stringify(extraParams) : "";
+  const [data, setData] = useState<T | null>(null);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!configured || !yoyCompare) {
+      setData(null);
+      setPending(false);
+      setError(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadReport() {
+      setPending(true);
+      setError(null);
+
+      try {
+        const result = await fetchJson<T>(
+          `/api/reports/${path}${priorQueryString}`
+        );
+        if (!cancelled) {
+          setData(result);
+        }
+      } catch (loadError) {
+        if (!cancelled) {
+          setError(
+            loadError instanceof Error ? loadError.message : "Failed to load"
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setPending(false);
+        }
+      }
+    }
+
+    void loadReport();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    path,
+    priorQueryString,
+    configured,
+    refreshCounter,
+    extraKey,
+    yoyCompare,
+  ]);
+
+  const loading = configured && yoyCompare && pending && data === null;
 
   return { data, loading, error };
 }

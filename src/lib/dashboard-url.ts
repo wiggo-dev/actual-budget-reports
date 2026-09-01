@@ -47,6 +47,7 @@ export type DashboardUrlState = {
   trendCustom: CustomDateRange | null;
   spendingCustom: CustomDateRange | null;
   spendingLevel: SpendingAggregation;
+  yoyCompare: boolean;
   presetId: string | null;
   excludedAccountIds: string[] | null;
   excludedCategoryIds: string[] | null;
@@ -60,6 +61,10 @@ export function parseSpendingLevel(
     return value;
   }
   return null;
+}
+
+export function parseYoYCompare(value: string | null): boolean {
+  return value === "1" || value === "true";
 }
 
 export function parseDashboardView(value: string | null): DashboardView | null {
@@ -96,6 +101,7 @@ export function readDashboardUrlState(
   const spendingScope = parseScopeFromUrl("spending", searchParams);
   const presetId = searchParams.get("preset");
   const spendingLevel = parseSpendingLevel(searchParams.get("spendingLevel"));
+  const yoyCompare = parseYoYCompare(searchParams.get("yoy"));
   const excludedRaw = searchParams.get("excluded");
   const excludedCategoriesRaw = searchParams.get("excludedCategories");
   const excludedCategoryGroupsRaw = searchParams.get("excludedCategoryGroups");
@@ -108,6 +114,7 @@ export function readDashboardUrlState(
   if (spendingScope.custom) state.spendingCustom = spendingScope.custom;
   if (presetId) state.presetId = presetId;
   if (spendingLevel) state.spendingLevel = spendingLevel;
+  if (yoyCompare) state.yoyCompare = true;
   if (excludedRaw != null) {
     state.excludedAccountIds = excludedRaw
       .split(",")
@@ -137,6 +144,7 @@ export function buildDashboardSearchParams(input: {
   trendCustom: CustomDateRange | null;
   spendingCustom: CustomDateRange | null;
   spendingLevel: SpendingAggregation;
+  yoyCompare: boolean;
   presetId: string | null;
   excludedAccountIds: string[];
   excludedCategoryIds: string[];
@@ -158,6 +166,9 @@ export function buildDashboardSearchParams(input: {
 
   if (input.spendingLevel === "group") {
     params.set("spendingLevel", "group");
+  }
+  if (input.yoyCompare) {
+    params.set("yoy", "1");
   }
 
   if (input.presetId) {
