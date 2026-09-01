@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.0
+
+### Minor Changes
+
+- 10b54d4: Add category and category-group exclude filters for spending reports, with preset persistence and clearer unsaved-preset UI. Keep chart size stable while report data refreshes in the background.
+
 ## 1.1.0
 
 ### Minor Changes
