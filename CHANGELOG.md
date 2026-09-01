@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.2
+
+### Patch Changes
+
+- 99e0142: Fix health endpoint failing under Next.js by reading the Actual API version from a server-only module instead of requiring `@actual-app/api/package.json`.
+
 ## 1.0.1
 
 ### Patch Changes
