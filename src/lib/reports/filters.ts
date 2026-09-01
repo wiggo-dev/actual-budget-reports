@@ -1,4 +1,8 @@
 import {
+  parseExcludedCategoryGroupIds,
+  parseExcludedCategoryIds,
+} from "@/lib/reports/category-filter";
+import {
   parseTimeframe,
   timeframeWindow,
   type MonthWindow,
@@ -7,6 +11,30 @@ import {
   parseCustomDateRange,
   type ReportRange,
 } from "@/lib/reports/report-range";
+
+export type ReportFilters = {
+  excludedAccountIds: string[];
+  excludedCategoryIds: string[];
+  excludedCategoryGroupIds: string[];
+};
+
+export function emptyReportFilters(): ReportFilters {
+  return {
+    excludedAccountIds: [],
+    excludedCategoryIds: [],
+    excludedCategoryGroupIds: [],
+  };
+}
+
+export function parseReportFilters(
+  searchParams: URLSearchParams
+): ReportFilters {
+  return {
+    excludedAccountIds: parseExcludedIds(searchParams),
+    excludedCategoryIds: parseExcludedCategoryIds(searchParams),
+    excludedCategoryGroupIds: parseExcludedCategoryGroupIds(searchParams),
+  };
+}
 
 export type ReportAccount = {
   id: string;

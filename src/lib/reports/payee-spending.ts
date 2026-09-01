@@ -1,6 +1,11 @@
 import { actual } from "@/lib/actual/client";
 import { formatLocalDate, integerToAmount } from "@/lib/format";
-import { filterAccounts } from "@/lib/reports/filters";
+import {
+  buildCategoryGroupIndex,
+  buildExcludedCategoryIdSet,
+  isCategoryExcluded,
+} from "@/lib/reports/category-filter";
+import { filterAccounts, type ReportFilters } from "@/lib/reports/filters";
 import {
   dateBoundsForRange,
   type ReportRange,
@@ -21,12 +26,17 @@ export type PayeeSpendRow = {
 };
 
 export function rankPayeeSpend(
-  transactions: PayeeSpendTransaction[]
+  transactions: PayeeSpendTransaction[],
+  excludedCategoryIds: Set<string> = new Set(),
+  categoryByTxId: Map<string, string | undefined> = new Map()
 ): PayeeSpendRow[] {
   const ids = new Set(transactions.map((tx) => tx.id));
   const totals = new Map<string, PayeeSpendRow>();
 
   for (const tx of transactions) {
+    if (isCategoryExcluded(categoryByTxId.get(tx.id), excludedCategoryIds)) {
+      continue;
+    }
     if (tx.transferId && ids.has(tx.transferId)) {
       continue;
     }
@@ -48,23 +58,38 @@ export function rankPayeeSpend(
 }
 
 export async function getPayeeSpending(
-  excludedAccountIds: string[],
+  filters: ReportFilters,
   range: ReportRange = { kind: "preset", window: { count: 1, endOffset: 0 } }
 ): Promise<PayeeSpendRow[]> {
   const accounts = filterAccounts(
     await actual.getAccounts(),
-    excludedAccountIds
+    filters.excludedAccountIds
+  );
+  const categories = await actual.getCategories();
+  const categoryGroupIndex = buildCategoryGroupIndex(
+    categories.map((category) => ({
+      id: category.id,
+      groupId: category.group_id,
+    }))
+  );
+  const excludedCategoryIds = buildExcludedCategoryIdSet(
+    filters,
+    categoryGroupIndex
   );
   const payeeNames = new Map(
     (await actual.getPayees()).map((payee) => [payee.id, payee.name])
   );
   const { start, end } = dateBoundsForRange(range);
   const transactions: PayeeSpendTransaction[] = [];
+  const categoryByTxId = new Map<string, string | undefined>();
 
   for (const account of accounts) {
     const accountTxs = await actual.getTransactions(account.id, start, end);
     for (const tx of accountTxs) {
       const payeeId = typeof tx.payee === "string" ? tx.payee : null;
+      const categoryId =
+        typeof tx.category === "string" ? tx.category : undefined;
+      categoryByTxId.set(tx.id, categoryId);
       transactions.push({
         id: tx.id,
         payeeId,
@@ -75,7 +100,7 @@ export async function getPayeeSpending(
     }
   }
 
-  return rankPayeeSpend(transactions);
+  return rankPayeeSpend(transactions, excludedCategoryIds, categoryByTxId);
 }
 
 export type TransactionListRow = {
@@ -95,13 +120,24 @@ export type TransactionListFilters = {
 };
 
 export async function getFilteredTransactions(
-  excludedAccountIds: string[],
+  filters: ReportFilters,
   range: ReportRange,
-  filters: TransactionListFilters = {}
+  filterOptions: TransactionListFilters = {}
 ): Promise<TransactionListRow[]> {
   const accounts = filterAccounts(
     await actual.getAccounts(),
-    excludedAccountIds
+    filters.excludedAccountIds
+  );
+  const categories = await actual.getCategories();
+  const categoryGroupIndex = buildCategoryGroupIndex(
+    categories.map((category) => ({
+      id: category.id,
+      groupId: category.group_id,
+    }))
+  );
+  const excludedCategoryIds = buildExcludedCategoryIdSet(
+    filters,
+    categoryGroupIndex
   );
   const accountNames = new Map(
     accounts.map((account) => [account.id, account.name])
@@ -110,15 +146,12 @@ export async function getFilteredTransactions(
     (await actual.getPayees()).map((payee) => [payee.id, payee.name])
   );
   const categoryNames = new Map(
-    (await actual.getCategories()).map((category) => [
-      category.id,
-      category.name,
-    ])
+    categories.map((category) => [category.id, category.name])
   );
 
   let { start, end } = dateBoundsForRange(range);
-  if (filters.month) {
-    const [year, month] = filters.month.split("-").map(Number);
+  if (filterOptions.month) {
+    const [year, month] = filterOptions.month.split("-").map(Number);
     if (year && month) {
       start = formatLocalDate(new Date(year, month - 1, 1));
       end = formatLocalDate(new Date(year, month, 0));
@@ -147,21 +180,24 @@ export async function getFilteredTransactions(
         : "Unknown";
       const categoryId =
         typeof tx.category === "string" ? tx.category : undefined;
+      if (isCategoryExcluded(categoryId, excludedCategoryIds)) {
+        continue;
+      }
       const categoryName = categoryId
         ? (categoryNames.get(categoryId) ?? "Uncategorized")
         : "Uncategorized";
 
-      if (filters.payeeId && payeeId !== filters.payeeId) {
+      if (filterOptions.payeeId && payeeId !== filterOptions.payeeId) {
         continue;
       }
       if (
-        !filters.payeeId &&
-        filters.payeeName &&
-        payeeName !== filters.payeeName
+        !filterOptions.payeeId &&
+        filterOptions.payeeName &&
+        payeeName !== filterOptions.payeeName
       ) {
         continue;
       }
-      if (filters.category && categoryName !== filters.category) {
+      if (filterOptions.category && categoryName !== filterOptions.category) {
         continue;
       }
 

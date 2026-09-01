@@ -30,13 +30,31 @@ type AccountSummary = {
   closed: boolean;
 };
 
+type CategoryGroupSummary = {
+  id: string;
+  name: string;
+  isIncome: boolean;
+};
+
+type CategorySummary = {
+  id: string;
+  name: string;
+  groupId: string;
+  isIncome: boolean;
+};
+
 export type ReportScope = "trend" | "spending" | "accounts";
 
 type ReportsContextValue = {
   accounts: AccountSummary[];
+  categoryGroups: CategoryGroupSummary[];
+  categories: CategorySummary[];
   excludedAccountIds: string[];
+  excludedCategoryIds: string[];
+  excludedCategoryGroupIds: string[];
   presets: AccountPreset[];
   selectedPresetId: string | null;
+  divergedFromPresetId: string | null;
   trendTimeframe: Timeframe;
   spendingTimeframe: Timeframe;
   trendCustomRange: CustomDateRange | null;
@@ -52,6 +70,8 @@ type ReportsContextValue = {
   error: string | null;
   configured: boolean;
   toggleAccount: (accountId: string) => void;
+  toggleCategory: (categoryId: string) => void;
+  toggleCategoryGroup: (groupId: string) => void;
   applyPreset: (presetId: string) => void;
   savePreset: (name: string) => Promise<void>;
   renamePreset: (presetId: string, name: string) => Promise<void>;
@@ -73,6 +93,49 @@ type ReportsContextValue = {
 
 const ReportsContext = createContext<ReportsContextValue | null>(null);
 
+function dashboardSelection(settings: Settings) {
+  const selection = settings.reportSelections["dashboard"];
+  return {
+    excludedAccountIds: selection?.excludedAccountIds ?? [],
+    excludedCategoryIds: selection?.excludedCategoryIds ?? [],
+    excludedCategoryGroupIds: selection?.excludedCategoryGroupIds ?? [],
+    divergedFromPresetId: selection?.divergedFromPresetId ?? null,
+  };
+}
+
+function selectionFromPreset(preset: AccountPreset) {
+  return {
+    excludedAccountIds: preset.excludedAccountIds,
+    excludedCategoryIds: preset.excludedCategoryIds,
+    excludedCategoryGroupIds: preset.excludedCategoryGroupIds,
+    divergedFromPresetId: null as string | null,
+  };
+}
+
+function persistDivergedFilters(
+  settings: Settings,
+  activePresetId: string | null,
+  divergedFromPresetId: string | null,
+  patch: Partial<ReturnType<typeof dashboardSelection>>
+): Settings {
+  const current = dashboardSelection(settings);
+  const sourcePresetId =
+    activePresetId ?? divergedFromPresetId ?? current.divergedFromPresetId;
+
+  return {
+    ...settings,
+    selectedPresetId: null,
+    reportSelections: {
+      ...settings.reportSelections,
+      dashboard: {
+        ...current,
+        ...patch,
+        divergedFromPresetId: sourcePresetId,
+      },
+    },
+  };
+}
+
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init);
   const payload = await response.json();
@@ -85,13 +148,23 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 function buildQueryString(
-  excludedAccountIds: string[],
+  filters: {
+    excludedAccountIds: string[];
+    excludedCategoryIds: string[];
+    excludedCategoryGroupIds: string[];
+  },
   timeframe?: Timeframe,
   customRange?: CustomDateRange | null
 ): string {
   const params = new URLSearchParams();
-  for (const id of excludedAccountIds) {
+  for (const id of filters.excludedAccountIds) {
     params.append("excludedAccountIds", id);
+  }
+  for (const id of filters.excludedCategoryIds) {
+    params.append("excludedCategoryIds", id);
+  }
+  for (const id of filters.excludedCategoryGroupIds) {
+    params.append("excludedCategoryGroupIds", id);
   }
   if (timeframe === "custom") {
     if (customRange && isValidCustomRange(customRange)) {
@@ -111,13 +184,26 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
   const initialUrl = readDashboardUrlState(searchParams);
 
   const [accounts, setAccounts] = useState<AccountSummary[]>([]);
+  const [categoryGroups, setCategoryGroups] = useState<CategoryGroupSummary[]>(
+    []
+  );
+  const [categories, setCategories] = useState<CategorySummary[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [excludedAccountIds, setExcludedAccountIds] = useState<string[]>(
     () => initialUrl.excludedAccountIds ?? []
   );
+  const [excludedCategoryIds, setExcludedCategoryIds] = useState<string[]>(
+    () => initialUrl.excludedCategoryIds ?? []
+  );
+  const [excludedCategoryGroupIds, setExcludedCategoryGroupIds] = useState<
+    string[]
+  >(() => initialUrl.excludedCategoryGroupIds ?? []);
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(
     () => initialUrl.presetId ?? null
   );
+  const [divergedFromPresetId, setDivergedFromPresetId] = useState<
+    string | null
+  >(null);
   const [trendTimeframe, setTrendTimeframeState] = useState<Timeframe>(
     () => initialUrl.trend ?? "12m"
   );
@@ -189,17 +275,24 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const [accountRows, savedSettings, preferenceRows] = await Promise.all([
-        fetchJson<AccountSummary[]>("/api/accounts"),
-        fetchJson<Settings>("/api/settings"),
-        fetchJson<{ currency: string }>("/api/preferences").catch(() => ({
-          currency: "GBP",
-        })),
-      ]);
+      const [accountRows, categoryRows, savedSettings, preferenceRows] =
+        await Promise.all([
+          fetchJson<AccountSummary[]>("/api/accounts"),
+          fetchJson<{
+            groups: CategoryGroupSummary[];
+            categories: CategorySummary[];
+          }>("/api/categories"),
+          fetchJson<Settings>("/api/settings"),
+          fetchJson<{ currency: string }>("/api/preferences").catch(() => ({
+            currency: "GBP",
+          })),
+        ]);
       await fetchSyncStatus().catch(() => undefined);
 
       const openAccounts = accountRows.filter((account) => !account.closed);
       setAccounts(openAccounts);
+      setCategoryGroups(categoryRows.groups);
+      setCategories(categoryRows.categories);
       setSettings(savedSettings);
       setCurrency(preferenceRows.currency || "GBP");
 
@@ -220,11 +313,23 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
         savedSettings.presets.find((preset) => preset.id === url.presetId);
 
       if (urlPreset) {
+        const selection = selectionFromPreset(urlPreset);
         setSelectedPresetId(urlPreset.id);
-        setExcludedAccountIds(urlPreset.excludedAccountIds);
-      } else if (url.excludedAccountIds) {
+        setDivergedFromPresetId(null);
+        setExcludedAccountIds(selection.excludedAccountIds);
+        setExcludedCategoryIds(selection.excludedCategoryIds);
+        setExcludedCategoryGroupIds(selection.excludedCategoryGroupIds);
+      } else if (
+        url.excludedAccountIds ||
+        url.excludedCategoryIds ||
+        url.excludedCategoryGroupIds
+      ) {
+        const selection = dashboardSelection(savedSettings);
         setSelectedPresetId(null);
-        setExcludedAccountIds(url.excludedAccountIds);
+        setDivergedFromPresetId(selection.divergedFromPresetId);
+        setExcludedAccountIds(url.excludedAccountIds ?? []);
+        setExcludedCategoryIds(url.excludedCategoryIds ?? []);
+        setExcludedCategoryGroupIds(url.excludedCategoryGroupIds ?? []);
       } else {
         const savedPresetId = savedSettings.selectedPresetId ?? null;
         const matchingPreset = savedPresetId
@@ -232,14 +337,19 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
           : undefined;
 
         if (matchingPreset) {
+          const selection = selectionFromPreset(matchingPreset);
           setSelectedPresetId(matchingPreset.id);
-          setExcludedAccountIds(matchingPreset.excludedAccountIds);
+          setDivergedFromPresetId(null);
+          setExcludedAccountIds(selection.excludedAccountIds);
+          setExcludedCategoryIds(selection.excludedCategoryIds);
+          setExcludedCategoryGroupIds(selection.excludedCategoryGroupIds);
         } else {
+          const selection = dashboardSelection(savedSettings);
           setSelectedPresetId(null);
-          setExcludedAccountIds(
-            savedSettings.reportSelections["dashboard"]?.excludedAccountIds ??
-              []
-          );
+          setDivergedFromPresetId(selection.divergedFromPresetId);
+          setExcludedAccountIds(selection.excludedAccountIds);
+          setExcludedCategoryIds(selection.excludedCategoryIds);
+          setExcludedCategoryGroupIds(selection.excludedCategoryGroupIds);
         }
       }
     } catch (loadError) {
@@ -281,19 +391,102 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
           : [...current, accountId];
 
         setSelectedPresetId(null);
-        void persistSettings({
-          ...settings,
-          selectedPresetId: null,
-          reportSelections: {
-            ...settings.reportSelections,
-            dashboard: { excludedAccountIds: nextExcluded },
-          },
-        });
+        setDivergedFromPresetId(
+          selectedPresetId ?? divergedFromPresetId ?? null
+        );
+        void persistSettings(
+          persistDivergedFilters(
+            settings,
+            selectedPresetId,
+            divergedFromPresetId,
+            { excludedAccountIds: nextExcluded }
+          )
+        );
 
         return nextExcluded;
       });
     },
-    [persistSettings, settings]
+    [divergedFromPresetId, persistSettings, selectedPresetId, settings]
+  );
+
+  const toggleCategory = useCallback(
+    (categoryId: string) => {
+      if (!settings) {
+        return;
+      }
+
+      setExcludedCategoryIds((current) => {
+        const nextExcluded = current.includes(categoryId)
+          ? current.filter((id) => id !== categoryId)
+          : [...current, categoryId];
+
+        setSelectedPresetId(null);
+        setDivergedFromPresetId(
+          selectedPresetId ?? divergedFromPresetId ?? null
+        );
+        void persistSettings(
+          persistDivergedFilters(
+            settings,
+            selectedPresetId,
+            divergedFromPresetId,
+            { excludedCategoryIds: nextExcluded }
+          )
+        );
+
+        return nextExcluded;
+      });
+    },
+    [divergedFromPresetId, persistSettings, selectedPresetId, settings]
+  );
+
+  const toggleCategoryGroup = useCallback(
+    (groupId: string) => {
+      if (!settings) {
+        return;
+      }
+
+      setExcludedCategoryGroupIds((current) => {
+        const excluding = !current.includes(groupId);
+        const nextGroups = excluding
+          ? [...current, groupId]
+          : current.filter((id) => id !== groupId);
+        const groupCategoryIds = new Set(
+          categories
+            .filter((category) => category.groupId === groupId)
+            .map((category) => category.id)
+        );
+        const nextCategories = excluding
+          ? excludedCategoryIds.filter((id) => !groupCategoryIds.has(id))
+          : excludedCategoryIds;
+
+        setExcludedCategoryIds(nextCategories);
+        setSelectedPresetId(null);
+        setDivergedFromPresetId(
+          selectedPresetId ?? divergedFromPresetId ?? null
+        );
+        void persistSettings(
+          persistDivergedFilters(
+            settings,
+            selectedPresetId,
+            divergedFromPresetId,
+            {
+              excludedCategoryIds: nextCategories,
+              excludedCategoryGroupIds: nextGroups,
+            }
+          )
+        );
+
+        return nextGroups;
+      });
+    },
+    [
+      categories,
+      divergedFromPresetId,
+      excludedCategoryIds,
+      persistSettings,
+      selectedPresetId,
+      settings,
+    ]
   );
 
   const applyPreset = useCallback(
@@ -308,13 +501,17 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
       }
 
       setSelectedPresetId(presetId);
-      setExcludedAccountIds(preset.excludedAccountIds);
+      setDivergedFromPresetId(null);
+      const selection = selectionFromPreset(preset);
+      setExcludedAccountIds(selection.excludedAccountIds);
+      setExcludedCategoryIds(selection.excludedCategoryIds);
+      setExcludedCategoryGroupIds(selection.excludedCategoryGroupIds);
       void persistSettings({
         ...settings,
         selectedPresetId: presetId,
         reportSelections: {
           ...settings.reportSelections,
-          dashboard: { excludedAccountIds: preset.excludedAccountIds },
+          dashboard: selection,
         },
       });
     },
@@ -333,6 +530,8 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
           id: createId("preset"),
           name,
           excludedAccountIds,
+          excludedCategoryIds,
+          excludedCategoryGroupIds,
         };
 
         const updated: Settings = {
@@ -341,12 +540,18 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
           selectedPresetId: preset.id,
           reportSelections: {
             ...settings.reportSelections,
-            dashboard: { excludedAccountIds },
+            dashboard: {
+              excludedAccountIds,
+              excludedCategoryIds,
+              excludedCategoryGroupIds,
+              divergedFromPresetId: null,
+            },
           },
         };
 
         await persistSettings(updated);
         setSelectedPresetId(preset.id);
+        setDivergedFromPresetId(null);
       } catch (saveError) {
         const message =
           saveError instanceof Error
@@ -356,7 +561,13 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
         throw saveError;
       }
     },
-    [excludedAccountIds, persistSettings, settings]
+    [
+      excludedAccountIds,
+      excludedCategoryIds,
+      excludedCategoryGroupIds,
+      persistSettings,
+      settings,
+    ]
   );
 
   const renamePreset = useCallback(
@@ -386,7 +597,14 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
       }
 
       const presets = settings.presets.map((preset) =>
-        preset.id === presetId ? { ...preset, excludedAccountIds } : preset
+        preset.id === presetId
+          ? {
+              ...preset,
+              excludedAccountIds,
+              excludedCategoryIds,
+              excludedCategoryGroupIds,
+            }
+          : preset
       );
 
       if (!presets.some((preset) => preset.id === presetId)) {
@@ -399,14 +617,26 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
         selectedPresetId: presetId,
         reportSelections: {
           ...settings.reportSelections,
-          dashboard: { excludedAccountIds },
+          dashboard: {
+            excludedAccountIds,
+            excludedCategoryIds,
+            excludedCategoryGroupIds,
+            divergedFromPresetId: null,
+          },
         },
       };
 
       await persistSettings(updated);
       setSelectedPresetId(presetId);
+      setDivergedFromPresetId(null);
     },
-    [excludedAccountIds, persistSettings, settings]
+    [
+      excludedAccountIds,
+      excludedCategoryIds,
+      excludedCategoryGroupIds,
+      persistSettings,
+      settings,
+    ]
   );
 
   const setTrendTimeframe = useCallback(
@@ -486,26 +716,35 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
     }
   }, [load]);
 
+  const reportFilters = useMemo(
+    () => ({
+      excludedAccountIds,
+      excludedCategoryIds,
+      excludedCategoryGroupIds,
+    }),
+    [excludedAccountIds, excludedCategoryIds, excludedCategoryGroupIds]
+  );
+
   const queryStringFor = useCallback(
     (scope: ReportScope) => {
       if (scope === "trend") {
         return buildQueryString(
-          excludedAccountIds,
+          reportFilters,
           trendTimeframe,
           trendCustomRange
         );
       }
       if (scope === "spending") {
         return buildQueryString(
-          excludedAccountIds,
+          reportFilters,
           spendingTimeframe,
           spendingCustomRange
         );
       }
-      return buildQueryString(excludedAccountIds);
+      return buildQueryString(reportFilters);
     },
     [
-      excludedAccountIds,
+      reportFilters,
       spendingCustomRange,
       spendingTimeframe,
       trendCustomRange,
@@ -516,9 +755,14 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
   const value = useMemo<ReportsContextValue>(
     () => ({
       accounts,
+      categoryGroups,
+      categories,
       excludedAccountIds,
+      excludedCategoryIds,
+      excludedCategoryGroupIds,
       presets: settings?.presets ?? [],
       selectedPresetId,
+      divergedFromPresetId,
       trendTimeframe,
       spendingTimeframe,
       trendCustomRange,
@@ -534,6 +778,8 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
       error,
       configured,
       toggleAccount,
+      toggleCategory,
+      toggleCategoryGroup,
       applyPreset,
       savePreset,
       renamePreset,
@@ -549,9 +795,14 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
     }),
     [
       accounts,
+      categoryGroups,
+      categories,
       excludedAccountIds,
+      excludedCategoryIds,
+      excludedCategoryGroupIds,
       settings?.presets,
       selectedPresetId,
+      divergedFromPresetId,
       trendTimeframe,
       spendingTimeframe,
       trendCustomRange,
@@ -567,6 +818,8 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
       error,
       configured,
       toggleAccount,
+      toggleCategory,
+      toggleCategoryGroup,
       applyPreset,
       savePreset,
       renamePreset,
@@ -599,7 +852,7 @@ export function useReportData<T>(path: string, scope: ReportScope = "trend") {
   const { queryStringFor, configured, refreshCounter } = useReportsContext();
   const queryString = queryStringFor(scope);
   const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [pending, setPending] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -610,7 +863,7 @@ export function useReportData<T>(path: string, scope: ReportScope = "trend") {
     let cancelled = false;
 
     async function loadReport() {
-      setLoading(true);
+      setPending(true);
       setError(null);
 
       try {
@@ -626,7 +879,7 @@ export function useReportData<T>(path: string, scope: ReportScope = "trend") {
         }
       } finally {
         if (!cancelled) {
-          setLoading(false);
+          setPending(false);
         }
       }
     }
@@ -638,5 +891,9 @@ export function useReportData<T>(path: string, scope: ReportScope = "trend") {
     };
   }, [path, queryString, configured, refreshCounter]);
 
-  return { data, loading: configured ? loading : false, error };
+  // Keep showing the previous chart until new data arrives; only block the
+  // UI with a skeleton on the very first load for this hook instance.
+  const loading = configured && pending && data === null;
+
+  return { data, loading, error };
 }

@@ -75,9 +75,14 @@ function DashboardSidebarPanel({
 }: DashboardSidebarPanelProps) {
   const {
     accounts,
+    categoryGroups,
+    categories,
     excludedAccountIds,
+    excludedCategoryIds,
+    excludedCategoryGroupIds,
     presets,
     selectedPresetId,
+    divergedFromPresetId,
     trendTimeframe,
     spendingTimeframe,
     trendCustomRange,
@@ -89,6 +94,8 @@ function DashboardSidebarPanel({
     setTrendCustomRange,
     setSpendingCustomRange,
     toggleAccount,
+    toggleCategory,
+    toggleCategoryGroup,
     applyPreset,
     savePreset,
     renamePreset,
@@ -100,19 +107,44 @@ function DashboardSidebarPanel({
   const [editPresetId, setEditPresetId] = useState<string | null>(null);
   const [editPresetName, setEditPresetName] = useState("");
   const [accountsOpen, setAccountsOpen] = useState(false);
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
 
-  const excludedNames = accounts
+  const excludedAccountNames = accounts
     .filter((account) => excludedAccountIds.includes(account.id))
     .map((account) => account.name);
+  const excludedGroupNames = categoryGroups
+    .filter((group) => excludedCategoryGroupIds.includes(group.id))
+    .map((group) => group.name);
+  const excludedCategoryNames = categories
+    .filter(
+      (category) =>
+        excludedCategoryIds.includes(category.id) &&
+        !excludedCategoryGroupIds.includes(category.groupId)
+    )
+    .map((category) => category.name);
 
   const selectedPresetName = presets.find(
     (preset) => preset.id === selectedPresetId
   )?.name;
+  const divergedPresetName = presets.find(
+    (preset) => preset.id === divergedFromPresetId
+  )?.name;
+  const hasCustomFilters =
+    excludedAccountIds.length > 0 ||
+    excludedCategoryIds.length > 0 ||
+    excludedCategoryGroupIds.length > 0;
+  const presetTriggerLabel = selectedPresetName
+    ? selectedPresetName
+    : divergedFromPresetId
+      ? "Unsaved changes"
+      : hasCustomFilters
+        ? "Custom filters"
+        : undefined;
 
   const editTargetId =
     editPresetId && presets.some((preset) => preset.id === editPresetId)
       ? editPresetId
-      : (selectedPresetId ?? presets[0]?.id ?? null);
+      : (selectedPresetId ?? divergedFromPresetId ?? presets[0]?.id ?? null);
 
   const editTargetName =
     presets.find((preset) => preset.id === editTargetId)?.name ?? "";
@@ -233,9 +265,15 @@ function DashboardSidebarPanel({
               }
             }}
           >
-            <SelectTrigger className="w-full rounded-2xl border-zinc-200">
-              <SelectValue placeholder={loading ? "…" : "Preset"}>
-                {selectedPresetName}
+            <SelectTrigger
+              className={cn(
+                "w-full rounded-2xl border-zinc-200",
+                divergedFromPresetId &&
+                  "border-amber-300 bg-amber-50 text-amber-950"
+              )}
+            >
+              <SelectValue placeholder={loading ? "…" : "Choose preset"}>
+                {presetTriggerLabel}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
@@ -246,6 +284,14 @@ function DashboardSidebarPanel({
               ))}
             </SelectContent>
           </Select>
+          {divergedFromPresetId ? (
+            <p className="px-1 text-xs leading-relaxed text-amber-800">
+              Filters changed
+              {divergedPresetName ? ` from “${divergedPresetName}”` : ""}. Open{" "}
+              <span className="font-medium">Accounts</span> to update that
+              preset or save a new one.
+            </p>
+          ) : null}
         </div>
 
         <Dialog
@@ -253,7 +299,11 @@ function DashboardSidebarPanel({
           onOpenChange={(open) => {
             setAccountsOpen(open);
             if (open) {
-              const nextId = selectedPresetId ?? presets[0]?.id ?? null;
+              const nextId =
+                selectedPresetId ??
+                divergedFromPresetId ??
+                presets[0]?.id ??
+                null;
               setEditPresetId(nextId);
               setEditPresetName(
                 presets.find((preset) => preset.id === nextId)?.name ?? ""
@@ -406,11 +456,82 @@ function DashboardSidebarPanel({
                     </Button>
                   </div>
                   <p className="text-xs text-zinc-500">
-                    Update saves the current account selection to this preset.
+                    Update saves the current account and category selection to
+                    this preset.
                   </p>
                 </div>
               ) : null}
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={categoriesOpen} onOpenChange={setCategoriesOpen}>
+          <DialogTrigger
+            className={cn(
+              buttonVariants({ variant: "outline" }),
+              "w-full rounded-2xl"
+            )}
+          >
+            Categories
+          </DialogTrigger>
+          <DialogContent className="max-w-md rounded-[2rem]">
+            <DialogHeader>
+              <DialogTitle>Included categories</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-zinc-500">
+              All categories are included by default. Uncheck groups or
+              categories to exclude them from spending reports.
+            </p>
+            <ScrollArea className="h-64 pr-3">
+              <div className="space-y-5">
+                {categoryGroups.map((group) => {
+                  const groupCategories = categories.filter(
+                    (category) => category.groupId === group.id
+                  );
+                  if (groupCategories.length === 0) {
+                    return null;
+                  }
+
+                  const groupExcluded = excludedCategoryGroupIds.includes(
+                    group.id
+                  );
+
+                  return (
+                    <div key={group.id} className="space-y-3">
+                      <label className="flex items-center gap-3 text-sm font-medium">
+                        <Checkbox
+                          checked={!groupExcluded}
+                          onCheckedChange={() => toggleCategoryGroup(group.id)}
+                        />
+                        <span>{group.name}</span>
+                      </label>
+                      <div className="space-y-2 pl-7">
+                        {groupCategories.map((category) => {
+                          const included =
+                            !groupExcluded &&
+                            !excludedCategoryIds.includes(category.id);
+                          return (
+                            <label
+                              key={category.id}
+                              className="flex items-center gap-3 text-sm text-zinc-700"
+                            >
+                              <Checkbox
+                                checked={included}
+                                disabled={groupExcluded}
+                                onCheckedChange={() =>
+                                  toggleCategory(category.id)
+                                }
+                              />
+                              <span>{category.name}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </ScrollArea>
           </DialogContent>
         </Dialog>
 
@@ -424,12 +545,24 @@ function DashboardSidebarPanel({
           </div>
         ) : null}
 
-        {excludedNames.length > 0 ? (
+        {excludedAccountNames.length > 0 ||
+        excludedGroupNames.length > 0 ||
+        excludedCategoryNames.length > 0 ? (
           <div className="space-y-2 text-xs text-zinc-500">
             <p>Excluded</p>
-            {excludedNames.map((name) => (
-              <p key={name} className="text-zinc-700">
-                − {name}
+            {excludedAccountNames.map((name) => (
+              <p key={`account-${name}`} className="text-zinc-700">
+                − {name} <span className="text-zinc-400">· account</span>
+              </p>
+            ))}
+            {excludedGroupNames.map((name) => (
+              <p key={`group-${name}`} className="text-zinc-700">
+                − {name} <span className="text-zinc-400">· group</span>
+              </p>
+            ))}
+            {excludedCategoryNames.map((name) => (
+              <p key={`category-${name}`} className="text-zinc-700">
+                − {name} <span className="text-zinc-400">· category</span>
               </p>
             ))}
           </div>

@@ -45,4 +45,15 @@ describe("aggregateCategorySpend", () => {
       { category: "Uncategorized", amount: 10 },
     ]);
   });
+
+  it("skips excluded category ids", () => {
+    const transactions: SpendTransaction[] = [
+      fromPartial({ amount: -4000, category: "food" }),
+      fromPartial({ amount: -2000, category: "fun" }),
+    ];
+
+    expect(
+      aggregateCategorySpend(transactions, names, new Set(["food"]))
+    ).toEqual([{ category: "Entertainment", amount: 20 }]);
+  });
 });

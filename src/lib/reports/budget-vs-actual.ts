@@ -1,6 +1,11 @@
 import { actual } from "@/lib/actual/client";
 import { formatLocalDate, integerToAmount, monthKey } from "@/lib/format";
-import { filterAccounts } from "@/lib/reports/filters";
+import {
+  buildCategoryGroupIndex,
+  buildExcludedCategoryIdSet,
+  isCategoryExcluded,
+} from "@/lib/reports/category-filter";
+import { filterAccounts, type ReportFilters } from "@/lib/reports/filters";
 import {
   monthStartsForRange,
   type ReportRange,
@@ -53,12 +58,16 @@ type CategoryRow = {
 };
 
 function spentByCategory(
-  transactions: CategorySpendTx[]
+  transactions: CategorySpendTx[],
+  excludedCategoryIds: Set<string> = new Set()
 ): Map<string, { category: string; spent: number }> {
   const ids = new Set(transactions.map((tx) => tx.id));
   const totals = new Map<string, { category: string; spent: number }>();
 
   for (const tx of transactions) {
+    if (isCategoryExcluded(tx.categoryId ?? undefined, excludedCategoryIds)) {
+      continue;
+    }
     if (tx.transferId && ids.has(tx.transferId)) {
       continue;
     }
@@ -79,7 +88,8 @@ function spentByCategory(
 }
 
 export function buildBudgetVsActualReport(
-  months: BudgetMonthInput[]
+  months: BudgetMonthInput[],
+  excludedCategoryIds: Set<string> = new Set()
 ): BudgetVsActualReport {
   const aggregated = new Map<
     string,
@@ -88,11 +98,14 @@ export function buildBudgetVsActualReport(
   const history: BudgetHistoryPoint[] = [];
 
   for (const month of months) {
-    const spent = spentByCategory(month.transactions);
+    const spent = spentByCategory(month.transactions, excludedCategoryIds);
     let monthBudgeted = 0;
     let monthSpent = 0;
 
     for (const category of month.categories) {
+      if (isCategoryExcluded(category.categoryId, excludedCategoryIds)) {
+        continue;
+      }
       const spentRow = spent.get(category.categoryId);
       const categorySpent = spentRow?.spent ?? 0;
       monthBudgeted += category.budgeted;
@@ -115,6 +128,9 @@ export function buildBudgetVsActualReport(
     // Include uncategorized / unknown spend that wasn't in the budget sheet.
     for (const [categoryId, spentRow] of spent) {
       if (budgetedIds.has(categoryId)) {
+        continue;
+      }
+      if (isCategoryExcluded(categoryId, excludedCategoryIds)) {
         continue;
       }
       monthSpent += spentRow.spent;
@@ -148,18 +164,25 @@ export function buildBudgetVsActualReport(
 }
 
 export async function getBudgetVsActual(
-  excludedAccountIds: string[],
+  filters: ReportFilters,
   range: ReportRange = { kind: "preset", window: { count: 1, endOffset: 0 } }
 ): Promise<BudgetVsActualReport> {
   const accounts = filterAccounts(
     await actual.getAccounts(),
-    excludedAccountIds
+    filters.excludedAccountIds
   );
+  const categories = await actual.getCategories();
   const categoryNames = new Map(
-    (await actual.getCategories()).map((category) => [
-      category.id,
-      category.name,
-    ])
+    categories.map((category) => [category.id, category.name])
+  );
+  const excludedCategoryIds = buildExcludedCategoryIdSet(
+    filters,
+    buildCategoryGroupIndex(
+      categories.map((category) => ({
+        id: category.id,
+        groupId: category.group_id,
+      }))
+    )
   );
   const monthStarts = monthStartsForRange(range);
   const months: BudgetMonthInput[] = [];
@@ -206,5 +229,5 @@ export async function getBudgetVsActual(
     months.push({ month, categories, transactions });
   }
 
-  return buildBudgetVsActualReport(months);
+  return buildBudgetVsActualReport(months, excludedCategoryIds);
 }

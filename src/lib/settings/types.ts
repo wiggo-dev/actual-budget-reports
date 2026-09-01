@@ -13,13 +13,18 @@ export const REPORT_IDS = [
 export type ReportId = (typeof REPORT_IDS)[number];
 
 export const accountSelectionSchema = z.object({
-  excludedAccountIds: z.array(z.string()),
+  excludedAccountIds: z.array(z.string()).default([]),
+  excludedCategoryIds: z.array(z.string()).default([]),
+  excludedCategoryGroupIds: z.array(z.string()).default([]),
+  divergedFromPresetId: z.string().nullable().optional(),
 });
 
 export const presetSchema = z.object({
   id: z.string(),
   name: z.string().min(1),
-  excludedAccountIds: z.array(z.string()),
+  excludedAccountIds: z.array(z.string()).default([]),
+  excludedCategoryIds: z.array(z.string()).default([]),
+  excludedCategoryGroupIds: z.array(z.string()).default([]),
 });
 
 export const timeframeSchema = z.enum([
@@ -53,6 +58,8 @@ export const defaultSettings: Settings = {
       id: "all-accounts",
       name: "All accounts",
       excludedAccountIds: [],
+      excludedCategoryIds: [],
+      excludedCategoryGroupIds: [],
     },
   ],
   reportSelections: {},

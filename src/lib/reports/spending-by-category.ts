@@ -1,6 +1,11 @@
 import { actual } from "@/lib/actual/client";
 import { formatLocalDate, integerToAmount, monthKey } from "@/lib/format";
-import { filterAccounts } from "@/lib/reports/filters";
+import {
+  buildCategoryGroupIndex,
+  buildExcludedCategoryIdSet,
+  isCategoryExcluded,
+} from "@/lib/reports/category-filter";
+import { filterAccounts, type ReportFilters } from "@/lib/reports/filters";
 import {
   dateBoundsForRange,
   monthStartsForRange,
@@ -29,7 +34,8 @@ export function resolveCategoryName(
 
 export function aggregateCategorySpend(
   transactions: SpendTransaction[],
-  categoryNames: Map<string, string>
+  categoryNames: Map<string, string>,
+  excludedCategoryIds: Set<string> = new Set()
 ): CategorySpendRow[] {
   const totals = new Map<string, number>();
 
@@ -40,6 +46,10 @@ export function aggregateCategorySpend(
 
     const categoryId =
       typeof tx.category === "string" ? tx.category : undefined;
+    if (isCategoryExcluded(categoryId, excludedCategoryIds)) {
+      continue;
+    }
+
     const category = resolveCategoryName(categoryId, categoryNames);
     totals.set(
       category,
@@ -62,20 +72,35 @@ export type SpendingTrendSeries = {
   points: SpendingTrendPoint[];
 };
 
-async function loadCategoryNames() {
+async function loadCategoryFilterState(filters: ReportFilters) {
   const categories = await actual.getCategories();
-  return new Map(categories.map((category) => [category.id, category.name]));
+  const categoryNames = new Map(
+    categories.map((category) => [category.id, category.name])
+  );
+  const categoryGroupIndex = buildCategoryGroupIndex(
+    categories.map((category) => ({
+      id: category.id,
+      groupId: category.group_id,
+    }))
+  );
+  const excludedCategoryIds = buildExcludedCategoryIdSet(
+    filters,
+    categoryGroupIndex
+  );
+
+  return { categoryNames, excludedCategoryIds };
 }
 
 export async function getSpendingByCategory(
-  excludedAccountIds: string[],
+  filters: ReportFilters,
   range: ReportRange = { kind: "preset", window: { count: 1, endOffset: 0 } }
 ): Promise<CategorySpendRow[]> {
   const accounts = filterAccounts(
     await actual.getAccounts(),
-    excludedAccountIds
+    filters.excludedAccountIds
   );
-  const categoryNames = await loadCategoryNames();
+  const { categoryNames, excludedCategoryIds } =
+    await loadCategoryFilterState(filters);
   const { start, end } = dateBoundsForRange(range);
   const transactions: SpendTransaction[] = [];
 
@@ -84,11 +109,15 @@ export async function getSpendingByCategory(
     transactions.push(...rows);
   }
 
-  return aggregateCategorySpend(transactions, categoryNames);
+  return aggregateCategorySpend(
+    transactions,
+    categoryNames,
+    excludedCategoryIds
+  );
 }
 
 export async function getSpendingByCategoryTrend(
-  excludedAccountIds: string[],
+  filters: ReportFilters,
   range: ReportRange = {
     kind: "preset",
     window: { count: 12, endOffset: 0 },
@@ -97,9 +126,10 @@ export async function getSpendingByCategoryTrend(
 ): Promise<SpendingTrendSeries> {
   const accounts = filterAccounts(
     await actual.getAccounts(),
-    excludedAccountIds
+    filters.excludedAccountIds
   );
-  const categoryNames = await loadCategoryNames();
+  const { categoryNames, excludedCategoryIds } =
+    await loadCategoryFilterState(filters);
   const monthStarts = monthStartsForRange(range);
   const monthKeys = monthStarts.map((month) => monthKey(month));
 
@@ -127,6 +157,9 @@ export async function getSpendingByCategoryTrend(
 
         const categoryId =
           typeof tx.category === "string" ? tx.category : undefined;
+        if (isCategoryExcluded(categoryId, excludedCategoryIds)) {
+          continue;
+        }
         const category = resolveCategoryName(categoryId, categoryNames);
         const amount = Math.abs(integerToAmount(tx.amount));
         bucket.set(category, (bucket.get(category) ?? 0) + amount);

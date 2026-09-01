@@ -35,6 +35,8 @@ function DashboardBody() {
     spendingCustomRange,
     selectedPresetId,
     excludedAccountIds,
+    excludedCategoryIds,
+    excludedCategoryGroupIds,
   } = useReportsContext();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -56,6 +58,8 @@ function DashboardBody() {
       spendingCustom: spendingCustomRange,
       presetId: selectedPresetId,
       excludedAccountIds,
+      excludedCategoryIds,
+      excludedCategoryGroupIds,
     }).toString();
 
     if (next === searchParams.toString()) {
@@ -66,6 +70,8 @@ function DashboardBody() {
   }, [
     activeView,
     excludedAccountIds,
+    excludedCategoryIds,
+    excludedCategoryGroupIds,
     loading,
     pathname,
     router,

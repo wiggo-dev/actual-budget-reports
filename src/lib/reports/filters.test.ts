@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   filterAccounts,
   parseExcludedIds,
+  parseReportFilters,
   parseReportWindow,
 } from "@/lib/reports/filters";
 
@@ -38,6 +39,21 @@ describe("parseExcludedIds", () => {
 
   it("returns an empty list when no exclude params are present", () => {
     expect(parseExcludedIds(new URLSearchParams())).toEqual([]);
+  });
+});
+
+describe("parseReportFilters", () => {
+  it("combines account and category exclude params", () => {
+    const params = new URLSearchParams();
+    params.append("excludedAccountIds", "acct-1");
+    params.append("excludedCategoryIds", "cat-1");
+    params.append("excludedCategoryGroupIds", "grp-1");
+
+    expect(parseReportFilters(params)).toEqual({
+      excludedAccountIds: ["acct-1"],
+      excludedCategoryIds: ["cat-1"],
+      excludedCategoryGroupIds: ["grp-1"],
+    });
   });
 });
 

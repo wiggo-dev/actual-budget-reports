@@ -1,9 +1,43 @@
 import { dashboardViews, type DashboardView } from "@/lib/dashboard-views";
+import type { AccountPreset } from "@/lib/settings/types";
 import {
   parseCustomDateRange,
   type CustomDateRange,
 } from "@/lib/reports/report-range";
 import { parseTimeframeValue, type Timeframe } from "@/lib/reports/timeframe";
+
+export type FilterSelection = {
+  excludedAccountIds: string[];
+  excludedCategoryIds: string[];
+  excludedCategoryGroupIds: string[];
+};
+
+function idsEqual(a: string[], b: string[]) {
+  if (a.length !== b.length) {
+    return false;
+  }
+  const left = [...a].sort();
+  const right = [...b].sort();
+  return left.every((id, index) => id === right[index]);
+}
+
+export function filterSelectionMatchesPreset(
+  selection: FilterSelection,
+  preset: AccountPreset | undefined
+): boolean {
+  if (!preset) {
+    return false;
+  }
+
+  return (
+    idsEqual(selection.excludedAccountIds, preset.excludedAccountIds) &&
+    idsEqual(selection.excludedCategoryIds, preset.excludedCategoryIds) &&
+    idsEqual(
+      selection.excludedCategoryGroupIds,
+      preset.excludedCategoryGroupIds
+    )
+  );
+}
 
 export type DashboardUrlState = {
   view: DashboardView;
@@ -13,6 +47,8 @@ export type DashboardUrlState = {
   spendingCustom: CustomDateRange | null;
   presetId: string | null;
   excludedAccountIds: string[] | null;
+  excludedCategoryIds: string[] | null;
+  excludedCategoryGroupIds: string[] | null;
 };
 
 export function parseDashboardView(value: string | null): DashboardView | null {
@@ -49,6 +85,8 @@ export function readDashboardUrlState(
   const spendingScope = parseScopeFromUrl("spending", searchParams);
   const presetId = searchParams.get("preset");
   const excludedRaw = searchParams.get("excluded");
+  const excludedCategoriesRaw = searchParams.get("excludedCategories");
+  const excludedCategoryGroupsRaw = searchParams.get("excludedCategoryGroups");
 
   const state: Partial<DashboardUrlState> = {};
   if (view) state.view = view;
@@ -59,6 +97,18 @@ export function readDashboardUrlState(
   if (presetId) state.presetId = presetId;
   if (excludedRaw != null) {
     state.excludedAccountIds = excludedRaw
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+  }
+  if (excludedCategoriesRaw != null) {
+    state.excludedCategoryIds = excludedCategoriesRaw
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+  }
+  if (excludedCategoryGroupsRaw != null) {
+    state.excludedCategoryGroupIds = excludedCategoryGroupsRaw
       .split(",")
       .map((id) => id.trim())
       .filter(Boolean);
@@ -75,6 +125,8 @@ export function buildDashboardSearchParams(input: {
   spendingCustom: CustomDateRange | null;
   presetId: string | null;
   excludedAccountIds: string[];
+  excludedCategoryIds: string[];
+  excludedCategoryGroupIds: string[];
 }): URLSearchParams {
   const params = new URLSearchParams();
   params.set("view", input.view);
@@ -92,8 +144,19 @@ export function buildDashboardSearchParams(input: {
 
   if (input.presetId) {
     params.set("preset", input.presetId);
-  } else if (input.excludedAccountIds.length > 0) {
-    params.set("excluded", input.excludedAccountIds.join(","));
+  } else {
+    if (input.excludedAccountIds.length > 0) {
+      params.set("excluded", input.excludedAccountIds.join(","));
+    }
+    if (input.excludedCategoryIds.length > 0) {
+      params.set("excludedCategories", input.excludedCategoryIds.join(","));
+    }
+    if (input.excludedCategoryGroupIds.length > 0) {
+      params.set(
+        "excludedCategoryGroups",
+        input.excludedCategoryGroupIds.join(",")
+      );
+    }
   }
 
   return params;
