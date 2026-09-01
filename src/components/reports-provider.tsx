@@ -7,6 +7,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 
@@ -26,7 +27,9 @@ import type { ThemeMode } from "@/lib/theme";
 import {
   applyThemeMode,
   cacheThemeMode,
+  getServerThemeSnapshot,
   readCachedThemeMode,
+  subscribeToCachedTheme,
 } from "@/lib/theme-client";
 import { timeframeMonths, type Timeframe } from "@/lib/reports/timeframe";
 import { createId } from "@/lib/utils";
@@ -260,8 +263,13 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
   const [hiddenOverviewModules, setHiddenOverviewModulesState] = useState<
     string[]
   >([]);
-  // Keep SSR and the first client render aligned; boot script + cache hydrate after mount.
-  const [theme, setThemeState] = useState<ThemeMode>("light");
+  const cachedTheme = useSyncExternalStore(
+    subscribeToCachedTheme,
+    readCachedThemeMode,
+    getServerThemeSnapshot
+  );
+  const [theme, setThemeState] = useState<ThemeMode | null>(null);
+  const resolvedTheme = theme ?? cachedTheme;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [configured, setConfigured] = useState(true);
@@ -746,17 +754,13 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    setThemeState(readCachedThemeMode());
-  }, []);
-
-  useEffect(() => {
-    applyThemeMode(theme);
+    applyThemeMode(resolvedTheme);
 
     const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const onChange = () => applyThemeMode(theme);
+    const onChange = () => applyThemeMode(resolvedTheme);
     media.addEventListener("change", onChange);
     return () => media.removeEventListener("change", onChange);
-  }, [theme]);
+  }, [resolvedTheme]);
 
   const setTheme = useCallback(
     (next: ThemeMode) => {
@@ -926,7 +930,7 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
       spendingLevel,
       yoyCompare,
       hiddenOverviewModules,
-      theme,
+      theme: resolvedTheme,
       setTrendTimeframe,
       setSpendingTimeframe,
       setTrendCustomRange,
@@ -975,7 +979,7 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
       spendingLevel,
       yoyCompare,
       hiddenOverviewModules,
-      theme,
+      resolvedTheme,
       setTrendTimeframe,
       setSpendingTimeframe,
       setTrendCustomRange,

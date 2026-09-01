@@ -10,7 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { themeModeLabel, type ThemeMode } from "@/lib/theme";
+import { themeModeLabel } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
 export function ThemeModeToggle({ className }: { className?: string }) {
