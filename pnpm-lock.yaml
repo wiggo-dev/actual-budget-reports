@@ -8,8 +8,8 @@ importers:
   .:
     dependencies:
       "@actual-app/api":
-        specifier: ^26.8.1
-        version: 26.8.1
+        specifier: ^26.9.0
+        version: 26.9.0
       "@base-ui/react":
         specifier: ^1.7.0
         version: 1.7.0(@types/react@19.2.18)(date-fns@4.4.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -103,17 +103,17 @@ importers:
         version: 4.1.11(@types/node@20.19.43)(vite@8.2.2(@types/node@20.19.43)(jiti@2.7.0)(yaml@2.9.0))
 
 packages:
-  "@actual-app/api@26.8.1":
+  "@actual-app/api@26.9.0":
     resolution:
       {
-        integrity: sha512-FpOjTdbXEUlph1pElNANT/y2TwNn3vGbR/4SRRtic6x2kZIrrKZBCx4+X5/GobVNLPGJX66p6tVcki41nqpPZA==,
+        integrity: sha512-jlDN/RWOqa5ToIM3k4ShpwMIh9sCMUqYYsS5IvAIykKscGkHdmJ+0YqcLhJrG3qOkWplArp8TNknJWASUMR5AA==,
       }
     engines: { node: ">=20" }
 
-  "@actual-app/core@26.8.1":
+  "@actual-app/core@26.9.0":
     resolution:
       {
-        integrity: sha512-1uvhHqZ4QeBeOkEzLr+OAvRKQWSZr1E+oO32V2v4HgqwUF1MUkHtUZqEaf7WQswaF8hNNTI0GeL2goVbTJu6xg==,
+        integrity: sha512-Nn6rxZQRoCYIaHtc0ZSAinA7RgYV24QuHW+XE3aJWBu9qcttjSUIBMQrBo+W960C++FcityvkIi3Yj1XIUGy+g==,
       }
 
   "@actual-app/crdt@3.1.1":
@@ -6939,15 +6939,15 @@ packages:
       }
 
 snapshots:
-  "@actual-app/api@26.8.1":
+  "@actual-app/api@26.9.0":
     dependencies:
-      "@actual-app/core": 26.8.1
+      "@actual-app/core": 26.9.0
       "@actual-app/crdt": 3.1.1
       better-sqlite3: 12.11.1
       compare-versions: 6.1.1
       uuid: 14.0.2
 
-  "@actual-app/core@26.8.1":
+  "@actual-app/core@26.9.0":
     dependencies:
       "@jlongster/sql.js": 1.6.7
       "@rschedule/core": 1.5.0
