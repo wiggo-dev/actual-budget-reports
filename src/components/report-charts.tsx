@@ -104,6 +104,21 @@ function useMoney() {
     formatMoney(amount, currency, options);
 }
 
+const moneyChartMargin = { top: 8, right: 12, left: 4, bottom: 0 };
+
+function moneyYAxisProps(
+  money: (amount: number, options?: { hideFraction?: boolean }) => string
+) {
+  return {
+    width: 84,
+    tickLine: false,
+    axisLine: false,
+    tickMargin: 8,
+    tickFormatter: (value: number) =>
+      money(Number(value), { hideFraction: true }),
+  } as const;
+}
+
 type TooltipPayloadItem = {
   name?: string;
   value?: number | string;
@@ -371,14 +386,14 @@ export function NetWorthChart({
           config={netWorthCompositionConfig}
           className={cn("h-[280px] w-full", className)}
         >
-          <ComposedChart data={data} accessibilityLayer>
+          <ComposedChart
+            data={data}
+            accessibilityLayer
+            margin={moneyChartMargin}
+          >
             <CartesianGrid vertical={false} />
             <XAxis dataKey="month" tickLine={false} axisLine={false} />
-            <YAxis
-              tickLine={false}
-              axisLine={false}
-              tickFormatter={(value) => money(Number(value))}
-            />
+            <YAxis {...moneyYAxisProps(money)} />
             <ChartTooltip content={<MoneyTooltip money={money} />} />
             <ChartLegend content={<ChartLegendContent />} />
             <Area
@@ -414,14 +429,14 @@ export function NetWorthChart({
           config={netWorthYoYConfig}
           className={cn("h-[280px] w-full", className)}
         >
-          <LineChart data={yoyData} accessibilityLayer>
+          <LineChart
+            data={yoyData}
+            accessibilityLayer
+            margin={moneyChartMargin}
+          >
             <CartesianGrid vertical={false} />
             <XAxis dataKey="month" tickLine={false} axisLine={false} />
-            <YAxis
-              tickLine={false}
-              axisLine={false}
-              tickFormatter={(value) => money(Number(value))}
-            />
+            <YAxis {...moneyYAxisProps(money)} />
             <ChartTooltip content={<MoneyTooltip money={money} />} />
             <ChartLegend content={<ChartLegendContent />} />
             <Line
@@ -450,14 +465,10 @@ export function NetWorthChart({
           config={netWorthReportConfig}
           className={cn("h-[280px] w-full", className)}
         >
-          <LineChart data={data} accessibilityLayer>
+          <LineChart data={data} accessibilityLayer margin={moneyChartMargin}>
             <CartesianGrid vertical={false} />
             <XAxis dataKey="month" tickLine={false} axisLine={false} />
-            <YAxis
-              tickLine={false}
-              axisLine={false}
-              tickFormatter={(value) => money(Number(value))}
-            />
+            <YAxis {...moneyYAxisProps(money)} />
             <ChartTooltip content={<MoneyTooltip money={money} />} />
             <Line
               type="monotone"
