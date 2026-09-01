@@ -6,7 +6,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -225,11 +224,6 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
   const [syncError, setSyncError] = useState<string | null>(null);
   const [versionHealth, setVersionHealth] =
     useState<ReportsContextValue["versionHealth"]>(null);
-  const urlOverridesRef = useRef(initialUrl);
-
-  useEffect(() => {
-    urlOverridesRef.current = readDashboardUrlState(searchParams);
-  }, [searchParams]);
 
   const fetchSyncStatus = useCallback(async () => {
     const response = await fetch("/api/sync/status");
@@ -296,7 +290,7 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
       setSettings(savedSettings);
       setCurrency(preferenceRows.currency || "GBP");
 
-      const url = urlOverridesRef.current;
+      const url = readDashboardUrlState(searchParams);
       const legacy = savedSettings.timeframe;
 
       setTrendTimeframeState(
@@ -359,7 +353,7 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [fetchSyncStatus]);
+  }, [fetchSyncStatus, searchParams]);
 
   useEffect(() => {
     // Mount fetch against Actual; setState after the network response is expected.
