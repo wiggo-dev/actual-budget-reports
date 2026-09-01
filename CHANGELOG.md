@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.0
+
+### Minor Changes
+
+- fc70bd5: Add light, dark, and system theme modes with persisted preferences and dashboard dark styling.
+
 ## 1.4.0
 
 ### Minor Changes
