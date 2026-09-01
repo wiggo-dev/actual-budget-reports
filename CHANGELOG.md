@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.3
+
+### Patch Changes
+
+- Add CSV export for report views, privacy mode to blur sensitive values, and move refresh/privacy controls to the main toolbar.
+
 ## 1.0.2
 
 ### Patch Changes
