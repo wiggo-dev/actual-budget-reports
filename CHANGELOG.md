@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.2
+
+### Patch Changes
+
+- b063be9: Fix Docker health check by resolving the Actual API version from the standalone bundle layout.
+
 ## 1.5.1
 
 ### Patch Changes
