@@ -1,14 +1,5 @@
-import { createRequire } from "node:module";
-
-const require = createRequire(import.meta.url);
-
 export type ActualServerVersionResult =
   { version: string } | { error: "network-failure" };
-
-export function getActualApiVersion(): string {
-  const pkg = require("@actual-app/api/package.json") as { version: string };
-  return pkg.version;
-}
 
 /** Actual recommends matching major.minor between API client and sync server. */
 export function majorMinorVersion(version: string): string | null {

@@ -1,8 +1,10 @@
+import "server-only";
+
+import { getActualApiVersion } from "@/lib/actual/api-version.server";
 import { getSyncStatus } from "@/lib/actual/client";
 import {
   compareActualVersions,
   fetchActualServerVersion,
-  getActualApiVersion,
 } from "@/lib/actual/versions";
 import { getEnv, isActualConfigured } from "@/lib/env";
 import { isSyncStale } from "@/lib/sync-display";
