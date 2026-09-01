@@ -19,6 +19,7 @@ import {
 } from "@/lib/reports/report-range";
 import { scopeLabel } from "@/lib/reports/scope-label";
 import { timeframeMonths, type Timeframe } from "@/lib/reports/timeframe";
+import type { SpendingAggregation } from "@/lib/reports/spending-by-category";
 import { createId } from "@/lib/utils";
 import { useSearchParams } from "next/navigation";
 
@@ -58,10 +59,12 @@ type ReportsContextValue = {
   spendingTimeframe: Timeframe;
   trendCustomRange: CustomDateRange | null;
   spendingCustomRange: CustomDateRange | null;
+  spendingLevel: SpendingAggregation;
   setTrendTimeframe: (timeframe: Timeframe) => void;
   setSpendingTimeframe: (timeframe: Timeframe) => void;
   setTrendCustomRange: (range: CustomDateRange) => void;
   setSpendingCustomRange: (range: CustomDateRange) => void;
+  setSpendingLevel: (level: SpendingAggregation) => void;
   trendScopeLabel: string;
   spendingScopeLabel: string;
   currency: string;
@@ -76,7 +79,10 @@ type ReportsContextValue = {
   renamePreset: (presetId: string, name: string) => Promise<void>;
   updatePreset: (presetId: string) => Promise<void>;
   refreshData: () => Promise<void>;
-  queryStringFor: (scope: ReportScope) => string;
+  queryStringFor: (
+    scope: ReportScope,
+    extraParams?: Record<string, string>
+  ) => string;
   refreshCounter: number;
   lastSyncedAt: number | null;
   syncIntervalMs: number;
@@ -153,7 +159,9 @@ function buildQueryString(
     excludedCategoryGroupIds: string[];
   },
   timeframe?: Timeframe,
-  customRange?: CustomDateRange | null
+  customRange?: CustomDateRange | null,
+  spendingLevel?: SpendingAggregation,
+  extraParams?: Record<string, string>
 ): string {
   const params = new URLSearchParams();
   for (const id of filters.excludedAccountIds) {
@@ -164,6 +172,14 @@ function buildQueryString(
   }
   for (const id of filters.excludedCategoryGroupIds) {
     params.append("excludedCategoryGroupIds", id);
+  }
+  if (spendingLevel === "group") {
+    params.set("spendingLevel", "group");
+  }
+  if (extraParams) {
+    for (const [key, value] of Object.entries(extraParams)) {
+      params.set(key, value);
+    }
   }
   if (timeframe === "custom") {
     if (customRange && isValidCustomRange(customRange)) {
@@ -213,6 +229,9 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
     useState<CustomDateRange | null>(() => initialUrl.trendCustom ?? null);
   const [spendingCustomRange, setSpendingCustomRangeState] =
     useState<CustomDateRange | null>(() => initialUrl.spendingCustom ?? null);
+  const [spendingLevel, setSpendingLevelState] = useState<SpendingAggregation>(
+    () => initialUrl.spendingLevel ?? "category"
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [configured, setConfigured] = useState(true);
@@ -301,6 +320,7 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
       );
       setTrendCustomRangeState(url.trendCustom ?? null);
       setSpendingCustomRangeState(url.spendingCustom ?? null);
+      setSpendingLevelState(url.spendingLevel ?? "category");
 
       const urlPreset =
         url.presetId &&
@@ -682,6 +702,10 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
     setSpendingCustomRangeState(range);
   }, []);
 
+  const setSpendingLevel = useCallback((level: SpendingAggregation) => {
+    setSpendingLevelState(level);
+  }, []);
+
   const trendScopeLabel = scopeLabel(trendTimeframe, trendCustomRange);
   const spendingScopeLabel = scopeLabel(spendingTimeframe, spendingCustomRange);
 
@@ -720,26 +744,37 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
   );
 
   const queryStringFor = useCallback(
-    (scope: ReportScope) => {
+    (scope: ReportScope, extraParams?: Record<string, string>) => {
       if (scope === "trend") {
         return buildQueryString(
           reportFilters,
           trendTimeframe,
-          trendCustomRange
+          trendCustomRange,
+          spendingLevel,
+          extraParams
         );
       }
       if (scope === "spending") {
         return buildQueryString(
           reportFilters,
           spendingTimeframe,
-          spendingCustomRange
+          spendingCustomRange,
+          spendingLevel,
+          extraParams
         );
       }
-      return buildQueryString(reportFilters);
+      return buildQueryString(
+        reportFilters,
+        undefined,
+        undefined,
+        undefined,
+        extraParams
+      );
     },
     [
       reportFilters,
       spendingCustomRange,
+      spendingLevel,
       spendingTimeframe,
       trendCustomRange,
       trendTimeframe,
@@ -761,10 +796,12 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
       spendingTimeframe,
       trendCustomRange,
       spendingCustomRange,
+      spendingLevel,
       setTrendTimeframe,
       setSpendingTimeframe,
       setTrendCustomRange,
       setSpendingCustomRange,
+      setSpendingLevel,
       trendScopeLabel,
       spendingScopeLabel,
       currency,
@@ -801,10 +838,12 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
       spendingTimeframe,
       trendCustomRange,
       spendingCustomRange,
+      spendingLevel,
       setTrendTimeframe,
       setSpendingTimeframe,
       setTrendCustomRange,
       setSpendingCustomRange,
+      setSpendingLevel,
       trendScopeLabel,
       spendingScopeLabel,
       currency,
@@ -842,9 +881,14 @@ export function useReportsContext() {
   return context;
 }
 
-export function useReportData<T>(path: string, scope: ReportScope = "trend") {
+export function useReportData<T>(
+  path: string,
+  scope: ReportScope = "trend",
+  extraParams?: Record<string, string>
+) {
   const { queryStringFor, configured, refreshCounter } = useReportsContext();
-  const queryString = queryStringFor(scope);
+  const queryString = queryStringFor(scope, extraParams);
+  const extraKey = extraParams ? JSON.stringify(extraParams) : "";
   const [data, setData] = useState<T | null>(null);
   const [pending, setPending] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -883,7 +927,7 @@ export function useReportData<T>(path: string, scope: ReportScope = "trend") {
     return () => {
       cancelled = true;
     };
-  }, [path, queryString, configured, refreshCounter]);
+  }, [path, queryString, configured, refreshCounter, extraKey]);
 
   // Keep showing the previous chart until new data arrives; only block the
   // UI with a skeleton on the very first load for this hook instance.

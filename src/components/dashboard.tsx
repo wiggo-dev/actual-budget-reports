@@ -33,6 +33,7 @@ function DashboardBody() {
     spendingTimeframe,
     trendCustomRange,
     spendingCustomRange,
+    spendingLevel,
     selectedPresetId,
     excludedAccountIds,
     excludedCategoryIds,
@@ -56,6 +57,7 @@ function DashboardBody() {
       spending: spendingTimeframe,
       trendCustom: trendCustomRange,
       spendingCustom: spendingCustomRange,
+      spendingLevel,
       presetId: selectedPresetId,
       excludedAccountIds,
       excludedCategoryIds,
@@ -79,6 +81,7 @@ function DashboardBody() {
     selectedPresetId,
     spendingTimeframe,
     spendingCustomRange,
+    spendingLevel,
     trendTimeframe,
     trendCustomRange,
   ]);

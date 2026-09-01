@@ -1,6 +1,7 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { ChevronDown } from "lucide-react";
 
 import {
   AccountBalancesChart,
@@ -17,6 +18,7 @@ import { ReportExportButton } from "@/components/report-export-button";
 import { useReportsContext } from "@/components/reports-provider";
 import { formatMoney } from "@/lib/format";
 import type { DashboardView } from "@/lib/dashboard-views";
+import { cn } from "@/lib/utils";
 
 function pct(value: number) {
   const sign = value >= 0 ? "+" : "−";
@@ -83,6 +85,7 @@ export function DashboardOverview() {
   const { currency } = useReportsContext();
   const money = (amount: number) => formatMoney(amount, currency);
   const stats = useOverviewStats();
+  const [accountsExpanded, setAccountsExpanded] = useState(false);
   const spentRatio =
     stats.periodExpenses != null &&
     stats.periodIncome != null &&
@@ -198,8 +201,27 @@ export function DashboardOverview() {
       </div>
 
       <div className="rounded-[2rem] bg-white p-6 shadow-sm md:col-span-6">
-        <p className="mb-4 text-sm text-zinc-500">Accounts</p>
-        <AccountBalancesChart />
+        <button
+          type="button"
+          className="flex w-full items-center justify-between gap-3 text-left"
+          aria-expanded={accountsExpanded}
+          aria-controls="overview-accounts-panel"
+          onClick={() => setAccountsExpanded((open) => !open)}
+        >
+          <span className="text-sm text-zinc-500">Accounts</span>
+          <ChevronDown
+            className={cn(
+              "size-4 shrink-0 text-zinc-400 transition-transform",
+              accountsExpanded && "rotate-180"
+            )}
+            aria-hidden
+          />
+        </button>
+        {accountsExpanded ? (
+          <div id="overview-accounts-panel" className="mt-4">
+            <AccountBalancesChart />
+          </div>
+        ) : null}
       </div>
     </div>
   );

@@ -12,6 +12,8 @@ import {
   type ReportRange,
 } from "@/lib/reports/report-range";
 
+export type SpendingAggregation = "category" | "group";
+
 export type CategorySpendRow = {
   category: string;
   amount: number;
@@ -20,6 +22,12 @@ export type CategorySpendRow = {
 export type SpendTransaction = {
   amount: number;
   category?: unknown;
+};
+
+export type SpendingQueryOptions = {
+  aggregation?: SpendingAggregation;
+  /** When set, only include transactions in this category group. */
+  groupId?: string;
 };
 
 export function resolveCategoryName(
@@ -32,11 +40,60 @@ export function resolveCategoryName(
   return categoryNames.get(categoryId) ?? "Uncategorized";
 }
 
+export function resolveGroupName(
+  categoryId: string | undefined,
+  categoryGroupIndex: Map<string, string>,
+  groupNames: Map<string, string>
+): string {
+  if (!categoryId) {
+    return "Uncategorized";
+  }
+  const groupId = categoryGroupIndex.get(categoryId);
+  if (!groupId) {
+    return "Uncategorized";
+  }
+  return groupNames.get(groupId) ?? "Uncategorized";
+}
+
+function resolveSpendBucket(
+  categoryId: string | undefined,
+  aggregation: SpendingAggregation,
+  categoryNames: Map<string, string>,
+  categoryGroupIndex: Map<string, string>,
+  groupNames: Map<string, string>
+): string {
+  if (aggregation === "group") {
+    return resolveGroupName(categoryId, categoryGroupIndex, groupNames);
+  }
+  return resolveCategoryName(categoryId, categoryNames);
+}
+
+function categoryBelongsToGroup(
+  categoryId: string | undefined,
+  groupId: string | undefined,
+  categoryGroupIndex: Map<string, string>
+): boolean {
+  if (!groupId) {
+    return true;
+  }
+  if (!categoryId) {
+    return false;
+  }
+  return categoryGroupIndex.get(categoryId) === groupId;
+}
+
 export function aggregateCategorySpend(
   transactions: SpendTransaction[],
   categoryNames: Map<string, string>,
-  excludedCategoryIds: Set<string> = new Set()
+  excludedCategoryIds: Set<string> = new Set(),
+  options: SpendingQueryOptions & {
+    categoryGroupIndex?: Map<string, string>;
+    groupNames?: Map<string, string>;
+  } = {}
 ): CategorySpendRow[] {
+  const aggregation = options.aggregation ?? "category";
+  const categoryGroupIndex = options.categoryGroupIndex ?? new Map();
+  const groupNames = options.groupNames ?? new Map();
   const totals = new Map<string, number>();
 
   for (const tx of transactions) {
@@ -49,12 +106,20 @@ export function aggregateCategorySpend(
     if (isCategoryExcluded(categoryId, excludedCategoryIds)) {
       continue;
     }
+    if (
+      !categoryBelongsToGroup(categoryId, options.groupId, categoryGroupIndex)
+    ) {
+      continue;
+    }
 
-    const category = resolveCategoryName(categoryId, categoryNames);
-    totals.set(
-      category,
-      (totals.get(category) ?? 0) + integerToAmount(tx.amount)
+    const bucket = resolveSpendBucket(
+      categoryId,
+      aggregation,
+      categoryNames,
+      categoryGroupIndex,
+      groupNames
     );
+    totals.set(bucket, (totals.get(bucket) ?? 0) + integerToAmount(tx.amount));
   }
 
   return [...totals.entries()]
@@ -73,10 +138,14 @@ export type SpendingTrendSeries = {
 };
 
 async function loadCategoryFilterState(filters: ReportFilters) {
-  const categories = await actual.getCategories();
+  const [categories, groups] = await Promise.all([
+    actual.getCategories(),
+    actual.getCategoryGroups(),
+  ]);
   const categoryNames = new Map(
     categories.map((category) => [category.id, category.name])
   );
+  const groupNames = new Map(groups.map((group) => [group.id, group.name]));
   const categoryGroupIndex = buildCategoryGroupIndex(
     categories.map((category) => ({
       id: category.id,
@@ -88,18 +157,19 @@ async function loadCategoryFilterState(filters: ReportFilters) {
     categoryGroupIndex
   );
 
-  return { categoryNames, excludedCategoryIds };
+  return { categoryNames, groupNames, categoryGroupIndex, excludedCategoryIds };
 }
 
 export async function getSpendingByCategory(
   filters: ReportFilters,
-  range: ReportRange = { kind: "preset", window: { count: 1, endOffset: 0 } }
+  range: ReportRange = { kind: "preset", window: { count: 1, endOffset: 0 } },
+  options: SpendingQueryOptions = {}
 ): Promise<CategorySpendRow[]> {
   const accounts = filterAccounts(
     await actual.getAccounts(),
     filters.excludedAccountIds
   );
-  const { categoryNames, excludedCategoryIds } =
+  const { categoryNames, groupNames, categoryGroupIndex, excludedCategoryIds } =
     await loadCategoryFilterState(filters);
   const { start, end } = dateBoundsForRange(range);
   const transactions: SpendTransaction[] = [];
@@ -112,7 +182,12 @@ export async function getSpendingByCategory(
   return aggregateCategorySpend(
     transactions,
     categoryNames,
-    excludedCategoryIds
+    excludedCategoryIds,
+    {
+      ...options,
+      categoryGroupIndex,
+      groupNames,
+    }
   );
 }
 
@@ -122,14 +197,16 @@ export async function getSpendingByCategoryTrend(
     kind: "preset",
     window: { count: 12, endOffset: 0 },
   },
-  topCategories = 7
+  topCategories = 7,
+  options: SpendingQueryOptions = {}
 ): Promise<SpendingTrendSeries> {
   const accounts = filterAccounts(
     await actual.getAccounts(),
     filters.excludedAccountIds
   );
-  const { categoryNames, excludedCategoryIds } =
+  const { categoryNames, groupNames, categoryGroupIndex, excludedCategoryIds } =
     await loadCategoryFilterState(filters);
+  const aggregation = options.aggregation ?? "category";
   const monthStarts = monthStartsForRange(range);
   const monthKeys = monthStarts.map((month) => monthKey(month));
 
@@ -160,13 +237,26 @@ export async function getSpendingByCategoryTrend(
         if (isCategoryExcluded(categoryId, excludedCategoryIds)) {
           continue;
         }
-        const category = resolveCategoryName(categoryId, categoryNames);
-        const amount = Math.abs(integerToAmount(tx.amount));
-        bucket.set(category, (bucket.get(category) ?? 0) + amount);
-        categoryTotals.set(
-          category,
-          (categoryTotals.get(category) ?? 0) + amount
+        if (
+          !categoryBelongsToGroup(
+            categoryId,
+            options.groupId,
+            categoryGroupIndex
+          )
+        ) {
+          continue;
+        }
+
+        const label = resolveSpendBucket(
+          categoryId,
+          aggregation,
+          categoryNames,
+          categoryGroupIndex,
+          groupNames
         );
+        const amount = Math.abs(integerToAmount(tx.amount));
+        bucket.set(label, (bucket.get(label) ?? 0) + amount);
+        categoryTotals.set(label, (categoryTotals.get(label) ?? 0) + amount);
       }
     }
   }

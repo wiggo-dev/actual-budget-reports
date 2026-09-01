@@ -21,6 +21,7 @@ import {
   useReportsContext,
 } from "@/components/reports-provider";
 import { useOptionalTransactionDrilldown } from "@/components/transaction-drilldown";
+import { Button } from "@/components/ui/button";
 import {
   ChartContainer,
   ChartLegend,
@@ -31,6 +32,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatMoney } from "@/lib/format";
 import { monthlySavingsRates, savingsRate } from "@/lib/reports/savings-rate";
+import type { SpendingAggregation } from "@/lib/reports/spending-by-category";
 import { cn } from "@/lib/utils";
 
 const netWorthOverviewConfig = {
@@ -266,6 +268,44 @@ export function AccountBalancesChart() {
 }
 
 type SpendingRow = { category: string; amount: number };
+
+function SpendingLevelToggle({
+  value,
+  onChange,
+}: {
+  value: SpendingAggregation;
+  onChange: (value: SpendingAggregation) => void;
+}) {
+  return (
+    <div
+      className="inline-flex rounded-xl border border-zinc-200 bg-zinc-50 p-1 text-sm"
+      role="group"
+      aria-label="Spending aggregation"
+    >
+      {(
+        [
+          ["group", "Groups"],
+          ["category", "Categories"],
+        ] as const
+      ).map(([level, label]) => (
+        <button
+          key={level}
+          type="button"
+          aria-pressed={value === level}
+          className={cn(
+            "rounded-lg px-3 py-1.5 font-medium transition-colors",
+            value === level
+              ? "bg-white text-zinc-900 shadow-sm"
+              : "text-zinc-500 hover:text-zinc-700"
+          )}
+          onClick={() => onChange(level)}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 function buildDonutSlices(data: SpendingRow[], limit: number) {
   const top = data.slice(0, limit);
@@ -515,9 +555,22 @@ export function SpendingDonutChart({
 export function SpendingByCategoryChart() {
   const money = useMoney();
   const drilldown = useOptionalTransactionDrilldown();
+  const { spendingLevel, setSpendingLevel, categoryGroups } =
+    useReportsContext();
+  const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
+
+  const expandedGroup = categoryGroups.find(
+    (group) => group.id === expandedGroupId
+  );
+  const donutExtraParams =
+    expandedGroupId != null
+      ? { spendingLevel: "category", groupId: expandedGroupId }
+      : undefined;
+
   const donut = useReportData<SpendingRow[]>(
     "spending-by-category",
-    "spending"
+    "spending",
+    donutExtraParams
   );
   const trend = useReportData<{
     categories: string[];
@@ -525,6 +578,31 @@ export function SpendingByCategoryChart() {
       { month: string; total: number } & Record<string, number | string>
     >;
   }>("spending-trend", "trend");
+
+  function handleSpendingLevelChange(level: SpendingAggregation) {
+    setExpandedGroupId(null);
+    setSpendingLevel(level);
+  }
+
+  function handleSliceClick(label: string) {
+    if (label === "Other") {
+      return;
+    }
+
+    if (spendingLevel === "group" && expandedGroupId == null) {
+      const group = categoryGroups.find((item) => item.name === label);
+      if (group) {
+        setExpandedGroupId(group.id);
+      }
+      return;
+    }
+
+    drilldown?.openDrilldown({
+      title: `Spending · ${label}`,
+      category: label,
+      scope: "spending",
+    });
+  }
 
   if (donut.loading || trend.loading) {
     return <ChartSkeleton className="h-[280px]" />;
@@ -550,91 +628,126 @@ export function SpendingByCategoryChart() {
     total: { label: "Total", color: "#134e4a" },
   } satisfies ChartConfig;
 
+  const aggregationLabel =
+    expandedGroup != null
+      ? expandedGroup.name
+      : spendingLevel === "group"
+        ? "category groups"
+        : "categories";
+
   return (
-    <div className="grid gap-10">
-      {donut.data?.length ? (
-        <SpendingDonutView
-          data={donut.data}
-          money={money}
-          showLegend
-          onCategoryClick={
-            drilldown
-              ? (category) =>
-                  drilldown.openDrilldown({
-                    title: `Spending · ${category}`,
-                    category,
-                    scope: "spending",
-                  })
-              : undefined
-          }
+    <div className="grid gap-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <SpendingLevelToggle
+          value={spendingLevel}
+          onChange={handleSpendingLevelChange}
         />
+        {expandedGroup ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="rounded-xl"
+            onClick={() => setExpandedGroupId(null)}
+          >
+            ← Back to groups
+          </Button>
+        ) : null}
+      </div>
+
+      {donut.data?.length ? (
+        <div className="space-y-2">
+          <p className="text-sm text-zinc-500">
+            {expandedGroup
+              ? `Categories in ${expandedGroup.name}`
+              : `Spending by ${aggregationLabel}`}
+          </p>
+          <SpendingDonutView
+            data={donut.data}
+            money={money}
+            showLegend
+            onCategoryClick={
+              drilldown || spendingLevel === "group"
+                ? handleSliceClick
+                : undefined
+            }
+          />
+        </div>
       ) : (
         <ChartError message="No spending data for the spending timeframe." />
       )}
 
       {points.length ? (
-        <ChartContainer
-          config={trendConfig}
-          className="aspect-auto h-[320px] w-full"
-        >
-          <ComposedChart
-            data={points}
-            accessibilityLayer
-            margin={{ top: 8, right: 8, left: 4, bottom: 0 }}
-            onClick={(state) => {
-              const month = state?.activeLabel;
-              if (typeof month === "string" && drilldown) {
-                drilldown.openDrilldown({
-                  title: `Spending · ${month}`,
-                  month,
-                  scope: "trend",
-                });
-              }
-            }}
-            style={{ cursor: drilldown ? "pointer" : undefined }}
+        <div className="space-y-2">
+          <p className="text-sm text-zinc-500">
+            Monthly trend by{" "}
+            {spendingLevel === "group" ? "category group" : "category"}
+          </p>
+          <ChartContainer
+            config={trendConfig}
+            className="aspect-auto h-[320px] w-full"
           >
-            <CartesianGrid vertical={false} />
-            <XAxis
-              dataKey="month"
-              tickLine={false}
-              axisLine={false}
-              tickFormatter={(value) => String(value).slice(5)}
-            />
-            <YAxis
-              width={72}
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-              tickFormatter={(value) =>
-                money(Number(value), { hideFraction: true })
-              }
-            />
-            <ChartTooltip content={<MoneyTooltip money={money} />} />
-            <ChartLegend content={<ChartLegendContent />} />
-            {categories.map((category, index) => (
-              <Bar
-                key={category}
-                dataKey={category}
-                name={category}
-                stackId="spend"
-                fill={donutPalette[index % donutPalette.length]}
-                maxBarSize={48}
-                radius={
-                  index === categories.length - 1 ? [6, 6, 0, 0] : [0, 0, 0, 0]
+            <ComposedChart
+              data={points}
+              accessibilityLayer
+              margin={{ top: 8, right: 8, left: 4, bottom: 0 }}
+              onClick={(state) => {
+                const month = state?.activeLabel;
+                if (typeof month === "string" && drilldown) {
+                  drilldown.openDrilldown({
+                    title: `Spending · ${month}`,
+                    month,
+                    scope: "trend",
+                  });
+                }
+              }}
+              style={{ cursor: drilldown ? "pointer" : undefined }}
+            >
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="month"
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(value) => String(value).slice(5)}
+              />
+              <YAxis
+                width={72}
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                tickFormatter={(value) =>
+                  money(Number(value), { hideFraction: true })
                 }
               />
-            ))}
-            <Line
-              type="monotone"
-              dataKey="total"
-              name="Total"
-              stroke="#134e4a"
-              strokeWidth={2.5}
-              dot={false}
-              activeDot={{ r: 4 }}
-            />
-          </ComposedChart>
-        </ChartContainer>
+              <ChartTooltip content={<MoneyTooltip money={money} />} />
+              <ChartLegend content={<ChartLegendContent />} />
+              {categories.map((category, index) => (
+                <Bar
+                  key={category}
+                  dataKey={category}
+                  name={category}
+                  stackId="spend"
+                  fill={donutPalette[index % donutPalette.length]}
+                  maxBarSize={48}
+                  radius={
+                    index === categories.length - 1
+                      ? [6, 6, 0, 0]
+                      : [0, 0, 0, 0]
+                  }
+                />
+              ))}
+              <Line
+                type="monotone"
+                dataKey="total"
+                name="Total"
+                stroke="#134e4a"
+                strokeWidth={2.5}
+                dot={false}
+                activeDot={{ r: 4 }}
+              />
+            </ComposedChart>
+          </ChartContainer>
+        </div>
       ) : (
         <ChartError message="No spending trend data for the trends timeframe." />
       )}

@@ -5,6 +5,7 @@ import {
   type CustomDateRange,
 } from "@/lib/reports/report-range";
 import { parseTimeframeValue, type Timeframe } from "@/lib/reports/timeframe";
+import type { SpendingAggregation } from "@/lib/reports/spending-by-category";
 
 export type FilterSelection = {
   excludedAccountIds: string[];
@@ -45,11 +46,21 @@ export type DashboardUrlState = {
   spending: Timeframe;
   trendCustom: CustomDateRange | null;
   spendingCustom: CustomDateRange | null;
+  spendingLevel: SpendingAggregation;
   presetId: string | null;
   excludedAccountIds: string[] | null;
   excludedCategoryIds: string[] | null;
   excludedCategoryGroupIds: string[] | null;
 };
+
+export function parseSpendingLevel(
+  value: string | null
+): SpendingAggregation | null {
+  if (value === "group" || value === "category") {
+    return value;
+  }
+  return null;
+}
 
 export function parseDashboardView(value: string | null): DashboardView | null {
   if (value && dashboardViews.some((view) => view.id === value)) {
@@ -84,6 +95,7 @@ export function readDashboardUrlState(
   const trendScope = parseScopeFromUrl("trend", searchParams);
   const spendingScope = parseScopeFromUrl("spending", searchParams);
   const presetId = searchParams.get("preset");
+  const spendingLevel = parseSpendingLevel(searchParams.get("spendingLevel"));
   const excludedRaw = searchParams.get("excluded");
   const excludedCategoriesRaw = searchParams.get("excludedCategories");
   const excludedCategoryGroupsRaw = searchParams.get("excludedCategoryGroups");
@@ -95,6 +107,7 @@ export function readDashboardUrlState(
   if (spendingScope.timeframe) state.spending = spendingScope.timeframe;
   if (spendingScope.custom) state.spendingCustom = spendingScope.custom;
   if (presetId) state.presetId = presetId;
+  if (spendingLevel) state.spendingLevel = spendingLevel;
   if (excludedRaw != null) {
     state.excludedAccountIds = excludedRaw
       .split(",")
@@ -123,6 +136,7 @@ export function buildDashboardSearchParams(input: {
   spending: Timeframe;
   trendCustom: CustomDateRange | null;
   spendingCustom: CustomDateRange | null;
+  spendingLevel: SpendingAggregation;
   presetId: string | null;
   excludedAccountIds: string[];
   excludedCategoryIds: string[];
@@ -140,6 +154,10 @@ export function buildDashboardSearchParams(input: {
   if (input.spending === "custom" && input.spendingCustom) {
     params.set("spendingStart", input.spendingCustom.start);
     params.set("spendingEnd", input.spendingCustom.end);
+  }
+
+  if (input.spendingLevel === "group") {
+    params.set("spendingLevel", "group");
   }
 
   if (input.presetId) {
