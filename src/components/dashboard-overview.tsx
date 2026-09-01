@@ -82,10 +82,14 @@ function SavingsRateSpark({
 }
 
 export function DashboardOverview() {
-  const { currency } = useReportsContext();
+  const { currency, accounts, excludedAccountIds } = useReportsContext();
   const money = (amount: number) => formatMoney(amount, currency);
   const stats = useOverviewStats();
   const [accountsExpanded, setAccountsExpanded] = useState(false);
+  const [accountsMounted, setAccountsMounted] = useState(false);
+  const includedAccountCount = accounts.filter(
+    (account) => !excludedAccountIds.includes(account.id)
+  ).length;
   const spentRatio =
     stats.periodExpenses != null &&
     stats.periodIncome != null &&
@@ -203,25 +207,59 @@ export function DashboardOverview() {
       <div className="rounded-[2rem] bg-white p-6 shadow-sm md:col-span-6">
         <button
           type="button"
-          className="flex w-full items-center justify-between gap-3 text-left"
+          className={cn(
+            "flex w-full items-center justify-between gap-4 rounded-2xl border px-4 py-3 text-left transition-colors",
+            "hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2 focus-visible:outline-none",
+            accountsExpanded
+              ? "border-zinc-200 bg-zinc-50"
+              : "border-dashed border-zinc-300 bg-zinc-50/80"
+          )}
           aria-expanded={accountsExpanded}
           aria-controls="overview-accounts-panel"
-          onClick={() => setAccountsExpanded((open) => !open)}
+          onClick={() => {
+            setAccountsExpanded((open) => {
+              if (!open) {
+                setAccountsMounted(true);
+              }
+              return !open;
+            });
+          }}
         >
-          <span className="text-sm text-zinc-500">Accounts</span>
-          <ChevronDown
-            className={cn(
-              "size-4 shrink-0 text-zinc-400 transition-transform",
-              accountsExpanded && "rotate-180"
-            )}
-            aria-hidden
-          />
-        </button>
-        {accountsExpanded ? (
-          <div id="overview-accounts-panel" className="mt-4">
-            <AccountBalancesChart />
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-zinc-900">Accounts</p>
+            <p className="mt-0.5 text-sm text-zinc-500">
+              {includedAccountCount}{" "}
+              {includedAccountCount === 1 ? "account" : "accounts"} included
+              {!accountsExpanded ? " · balances hidden" : null}
+            </p>
           </div>
-        ) : null}
+          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 shadow-sm ring-1 ring-zinc-200">
+            {accountsExpanded ? "Hide balances" : "Show balances"}
+            <ChevronDown
+              className={cn(
+                "size-4 text-zinc-500 transition-transform duration-300 motion-reduce:transition-none",
+                accountsExpanded && "rotate-180"
+              )}
+              aria-hidden
+            />
+          </span>
+        </button>
+        <div
+          id="overview-accounts-panel"
+          className={cn(
+            "grid overflow-anchor-none transition-[grid-template-rows] duration-300 ease-in-out motion-reduce:transition-none",
+            accountsExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+          )}
+          aria-hidden={!accountsExpanded}
+        >
+          <div className="min-h-0 overflow-hidden">
+            {accountsMounted ? (
+              <div className="pt-4">
+                <AccountBalancesChart />
+              </div>
+            ) : null}
+          </div>
+        </div>
       </div>
     </div>
   );
