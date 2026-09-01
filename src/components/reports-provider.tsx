@@ -24,6 +24,7 @@ import { priorYearScope } from "@/lib/reports/yoy";
 import type { OverviewModuleId } from "@/lib/overview-modules";
 import { overviewModules } from "@/lib/overview-modules";
 import type { ThemeMode } from "@/lib/theme";
+import { fetchJsonApi, parseJsonResponse } from "@/lib/api-client";
 import {
   applyThemeMode,
   cacheThemeMode,
@@ -166,17 +167,6 @@ function persistDivergedFilters(
   };
 }
 
-async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, init);
-  const payload = await response.json();
-
-  if (!response.ok) {
-    throw new Error(payload.error ?? "Request failed");
-  }
-
-  return payload.data as T;
-}
-
 function buildQueryString(
   filters: {
     excludedAccountIds: string[];
@@ -284,18 +274,21 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
 
   const fetchSyncStatus = useCallback(async () => {
     const response = await fetch("/api/sync/status");
-    const payload = await response.json();
+    const payload = await parseJsonResponse<{
+      data: { syncedAt: number; syncIntervalMs: number };
+      error?: string;
+    }>(response);
     if (!response.ok) {
       throw new Error(payload.error ?? "Failed to read sync status");
     }
-    const status = payload.data as { syncedAt: number; syncIntervalMs: number };
+    const status = payload.data;
     setLastSyncedAt(status.syncedAt);
     setSyncIntervalMs(status.syncIntervalMs);
   }, []);
 
   const persistSettings = useCallback(async (next: Settings) => {
     try {
-      const saved = await fetchJson<Settings>("/api/settings", {
+      const saved = await fetchJsonApi<Settings>("/api/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(next),
@@ -316,7 +309,15 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
     try {
       // Await before any setState so the mount effect stays lint-clean
       // (react-hooks/set-state-in-effect).
-      const health = await fetch("/api/health").then((r) => r.json());
+      const healthResponse = await fetch("/api/health");
+      const health = await parseJsonResponse<{
+        actualConfigured?: boolean;
+        versions?: ReportsContextValue["versionHealth"];
+        error?: string;
+      }>(healthResponse);
+      if (!healthResponse.ok) {
+        throw new Error(health.error ?? "Health check failed");
+      }
       setError(null);
       setConfigured(Boolean(health.actualConfigured));
       setVersionHealth(health.versions ?? null);
@@ -328,13 +329,13 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
 
       const [accountRows, categoryRows, savedSettings, preferenceRows] =
         await Promise.all([
-          fetchJson<AccountSummary[]>("/api/accounts"),
-          fetchJson<{
+          fetchJsonApi<AccountSummary[]>("/api/accounts"),
+          fetchJsonApi<{
             groups: CategoryGroupSummary[];
             categories: CategorySummary[];
           }>("/api/categories"),
-          fetchJson<Settings>("/api/settings"),
-          fetchJson<{ currency: string }>("/api/preferences").catch(() => ({
+          fetchJsonApi<Settings>("/api/settings"),
+          fetchJsonApi<{ currency: string }>("/api/preferences").catch(() => ({
             currency: "GBP",
           })),
         ]);
@@ -820,12 +821,15 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
 
     try {
       const response = await fetch("/api/sync", { method: "POST" });
-      const payload = await response.json();
+      const payload = await parseJsonResponse<{
+        data?: { syncedAt: number };
+        error?: string;
+      }>(response);
       if (!response.ok) {
         throw new Error(payload.error ?? "Sync failed");
       }
 
-      const result = payload.data as { syncedAt: number };
+      const result = payload.data!;
       setLastSyncedAt(result.syncedAt);
       setRefreshCounter((count) => count + 1);
       await load();
@@ -1050,7 +1054,9 @@ export function useReportData<T>(
       setError(null);
 
       try {
-        const result = await fetchJson<T>(`/api/reports/${path}${queryString}`);
+        const result = await fetchJsonApi<T>(
+          `/api/reports/${path}${queryString}`
+        );
         if (!cancelled) {
           setData(result);
         }
@@ -1113,11 +1119,11 @@ export function useYoYReportData<T extends { month: string }>(
       setError(null);
 
       try {
-        const current = await fetchJson<T[]>(
+        const current = await fetchJsonApi<T[]>(
           `/api/reports/${path}${queryString}`
         );
         const prior = yoyCompare
-          ? await fetchJson<T[]>(`/api/reports/${path}${priorQueryString}`)
+          ? await fetchJsonApi<T[]>(`/api/reports/${path}${priorQueryString}`)
           : null;
 
         if (!cancelled) {
@@ -1183,7 +1189,7 @@ export function usePriorYearReportData<T>(
       setError(null);
 
       try {
-        const result = await fetchJson<T>(
+        const result = await fetchJsonApi<T>(
           `/api/reports/${path}${priorQueryString}`
         );
         if (!cancelled) {
