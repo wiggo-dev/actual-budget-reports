@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.1
+
+### Patch Changes
+
+- a65bba8: Fix theme hydration after 1.5.0 by reading cached preferences with useSyncExternalStore.
+
 ## 1.5.0
 
 ### Minor Changes
