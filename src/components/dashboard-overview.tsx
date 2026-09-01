@@ -13,9 +13,11 @@ import {
   SpendingDonutChart,
   useOverviewStats,
 } from "@/components/report-charts";
+import { ReportExportButton } from "@/components/report-export-button";
 import { useReportsContext } from "@/components/reports-provider";
 import { formatMoney } from "@/lib/format";
 import { timeframeLabel } from "@/lib/reports/timeframe";
+import type { DashboardView } from "@/lib/dashboard-views";
 
 function pct(value: number) {
   const sign = value >= 0 ? "+" : "−";
@@ -194,17 +196,22 @@ export function DashboardOverview() {
 export function DashboardReportPanel({
   title,
   description,
+  exportView,
   children,
 }: {
   title: string;
   description: string;
+  exportView?: Exclude<DashboardView, "overview">;
   children: ReactNode;
 }) {
   return (
     <div className="rounded-[2rem] bg-white p-6 shadow-sm">
-      <div className="mb-6">
-        <h2 className="text-2xl font-semibold text-zinc-900">{title}</h2>
-        <p className="mt-1 text-sm text-zinc-500">{description}</p>
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-2xl font-semibold text-zinc-900">{title}</h2>
+          <p className="mt-1 text-sm text-zinc-500">{description}</p>
+        </div>
+        {exportView ? <ReportExportButton view={exportView} /> : null}
       </div>
       {children}
     </div>
@@ -229,6 +236,7 @@ export function DashboardReportView({
         <DashboardReportPanel
           title="Net worth over time"
           description={trendRange}
+          exportView="net-worth"
         >
           <NetWorthChart />
         </DashboardReportPanel>
@@ -238,6 +246,7 @@ export function DashboardReportView({
         <DashboardReportPanel
           title="Account balances"
           description="Current balances for included accounts"
+          exportView="account-balances"
         >
           <AccountBalancesChart />
         </DashboardReportPanel>
@@ -247,6 +256,7 @@ export function DashboardReportView({
         <DashboardReportPanel
           title="Spending by category"
           description={`Mix · ${spendingRange} · Trend · ${trendRange}`}
+          exportView="spending-by-category"
         >
           <SpendingByCategoryChart />
         </DashboardReportPanel>
@@ -256,6 +266,7 @@ export function DashboardReportView({
         <DashboardReportPanel
           title="Payee spending"
           description={spendingRange}
+          exportView="payee-spending"
         >
           <PayeeSpendingChart />
         </DashboardReportPanel>
@@ -265,6 +276,7 @@ export function DashboardReportView({
         <DashboardReportPanel
           title="Income vs expenses"
           description={trendRange}
+          exportView="income-vs-expenses"
         >
           <IncomeVsExpensesChart />
         </DashboardReportPanel>
@@ -274,13 +286,18 @@ export function DashboardReportView({
         <DashboardReportPanel
           title="Budget vs actual"
           description={spendingRange}
+          exportView="budget-vs-actual"
         >
           <BudgetVsActualChart />
         </DashboardReportPanel>
       );
     case "cash-flow":
       return (
-        <DashboardReportPanel title="Cash flow" description={trendRange}>
+        <DashboardReportPanel
+          title="Cash flow"
+          description={trendRange}
+          exportView="cash-flow"
+        >
           <CashFlowChart />
         </DashboardReportPanel>
       );

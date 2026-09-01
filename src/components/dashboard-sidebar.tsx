@@ -29,7 +29,11 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { TIMEFRAMES, type Timeframe } from "@/lib/reports/timeframe";
+import {
+  timeframeLabel,
+  TIMEFRAMES,
+  type Timeframe,
+} from "@/lib/reports/timeframe";
 import { dashboardViews, type DashboardView } from "@/lib/dashboard-views";
 import {
   formatSyncAge,
@@ -120,6 +124,10 @@ function DashboardSidebarPanel({
     .filter((account) => excludedAccountIds.includes(account.id))
     .map((account) => account.name);
 
+  const selectedPresetName = presets.find(
+    (preset) => preset.id === selectedPresetId
+  )?.name;
+
   const editTargetId =
     editPresetId && presets.some((preset) => preset.id === editPresetId)
       ? editPresetId
@@ -182,7 +190,9 @@ function DashboardSidebarPanel({
             }}
           >
             <SelectTrigger className="w-full rounded-2xl border-zinc-200">
-              <SelectValue placeholder={loading ? "…" : "Trends"} />
+              <SelectValue placeholder={loading ? "…" : "Trends"}>
+                {timeframeLabel(trendTimeframe)}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {TIMEFRAMES.map((item) => (
@@ -208,7 +218,9 @@ function DashboardSidebarPanel({
             }}
           >
             <SelectTrigger className="w-full rounded-2xl border-zinc-200">
-              <SelectValue placeholder={loading ? "…" : "Spending"} />
+              <SelectValue placeholder={loading ? "…" : "Spending"}>
+                {timeframeLabel(spendingTimeframe)}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {TIMEFRAMES.map((item) => (
@@ -231,7 +243,9 @@ function DashboardSidebarPanel({
             }}
           >
             <SelectTrigger className="w-full rounded-2xl border-zinc-200">
-              <SelectValue placeholder={loading ? "…" : "Preset"} />
+              <SelectValue placeholder={loading ? "…" : "Preset"}>
+                {selectedPresetName}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {presets.map((preset) => (
