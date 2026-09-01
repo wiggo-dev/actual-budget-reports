@@ -663,14 +663,14 @@ function SpendingDonutView({
                     <tspan
                       x={viewBox.cx}
                       y={(viewBox.cy ?? 0) - 6}
-                      className="fill-zinc-900 text-lg font-semibold"
+                      className="fill-zinc-900 text-lg font-semibold dark:fill-zinc-100"
                     >
                       {money(total, { hideFraction: true })}
                     </tspan>
                     <tspan
                       x={viewBox.cx}
                       y={(viewBox.cy ?? 0) + 14}
-                      className="fill-zinc-500 text-xs"
+                      className="fill-zinc-500 text-xs dark:fill-zinc-400"
                     >
                       total
                     </tspan>
