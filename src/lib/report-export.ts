@@ -1,3 +1,4 @@
+import { parseJsonResponse } from "@/lib/api-client";
 import {
   buildExportFilename,
   joinCsvSections,
@@ -28,8 +29,10 @@ async function fetchReport<T>(path: string, query: string): Promise<T> {
 
 async function fetchReportPayload(
   response: Response
-): Promise<{ data: unknown }> {
-  const payload = await response.json();
+): Promise<{ data: unknown; error?: string }> {
+  const payload = await parseJsonResponse<{ data: unknown; error?: string }>(
+    response
+  );
   if (!response.ok) {
     throw new Error(
       typeof payload.error === "string"

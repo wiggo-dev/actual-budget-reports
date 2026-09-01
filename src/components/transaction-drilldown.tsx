@@ -19,6 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { formatMoney } from "@/lib/format";
+import { parseJsonResponse } from "@/lib/api-client";
 
 export type TransactionDrilldownFilter = {
   title: string;
@@ -110,7 +111,10 @@ export function TransactionDrilldownProvider({
         const response = await fetch(
           `/api/reports/transactions?${base.toString()}`
         );
-        const payload = await response.json();
+        const payload = await parseJsonResponse<{
+          data: TransactionRow[];
+          error?: string;
+        }>(response);
         if (!response.ok) {
           throw new Error(payload.error ?? "Failed to load transactions");
         }
