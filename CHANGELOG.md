@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.3.0
+
+### Minor Changes
+
+- 4f6812e: Add category-group spending aggregation with expand-to-category drill-down, and collapse the overview accounts tile by default.
+- 4f6812e: Add year-over-year comparison for net worth, cash flow, and spending trends, plus a stacked on/off-budget composition view for net worth.
+
+### Patch Changes
+
+- 7e6f4d5: Remove the `/prototype` mock dashboard variants now that the bento overview with sidebar is the live UI.
+
 ## 1.2.0
 
 ### Minor Changes
