@@ -1,7 +1,7 @@
 "use client";
 
-import { Info, RefreshCw } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Info, Menu, RefreshCw } from "lucide-react";
+import { useSyncExternalStore, useState } from "react";
 
 import { useReportsContext } from "@/components/reports-provider";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -41,6 +41,17 @@ import { cn } from "@/lib/utils";
 export type { DashboardView };
 export { dashboardViews };
 
+function useNow(intervalMs = 30_000): number | null {
+  return useSyncExternalStore(
+    (onStoreChange) => {
+      const timer = window.setInterval(onStoreChange, intervalMs);
+      return () => window.clearInterval(timer);
+    },
+    () => Date.now(),
+    () => null
+  );
+}
+
 function TimeframeInfo({ label, detail }: { label: string; detail: string }) {
   return (
     <div className="flex items-center gap-1 px-1">
@@ -61,15 +72,17 @@ function TimeframeInfo({ label, detail }: { label: string; detail: string }) {
   );
 }
 
-type DashboardSidebarProps = {
+type DashboardSidebarPanelProps = {
   active: DashboardView;
   onNavigate: (view: DashboardView) => void;
+  showHeader?: boolean;
 };
 
-export function DashboardSidebar({
+function DashboardSidebarPanel({
   active,
   onNavigate,
-}: DashboardSidebarProps) {
+  showHeader = true,
+}: DashboardSidebarPanelProps) {
   const {
     accounts,
     excludedAccountIds,
@@ -95,23 +108,16 @@ export function DashboardSidebar({
   const [editPresetId, setEditPresetId] = useState<string | null>(null);
   const [editPresetName, setEditPresetName] = useState("");
   const [accountsOpen, setAccountsOpen] = useState(false);
-  const [now, setNow] = useState(() => Date.now());
-
-  useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 30_000);
-    return () => window.clearInterval(timer);
-  }, []);
+  const now = useNow();
 
   const syncStale =
-    lastSyncedAt != null && isSyncStale(lastSyncedAt, syncIntervalMs, now);
+    lastSyncedAt != null &&
+    now != null &&
+    isSyncStale(lastSyncedAt, syncIntervalMs, now);
 
   const excludedNames = accounts
     .filter((account) => excludedAccountIds.includes(account.id))
     .map((account) => account.name);
-
-  const selectedPresetName = presets.find(
-    (preset) => preset.id === selectedPresetId
-  )?.name;
 
   const editTargetId =
     editPresetId && presets.some((preset) => preset.id === editPresetId)
@@ -130,13 +136,19 @@ export function DashboardSidebar({
   }
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col rounded-[2rem] bg-white p-4 shadow-sm">
-      <p className="px-2 text-xs tracking-[0.2em] text-emerald-700 uppercase">
-        Actual reports
-      </p>
-      <h1 className="mt-2 px-2 text-lg font-semibold text-zinc-900">Reports</h1>
+    <>
+      {showHeader ? (
+        <>
+          <p className="px-2 text-xs tracking-[0.2em] text-emerald-700 uppercase">
+            Actual reports
+          </p>
+          <h1 className="mt-2 px-2 text-lg font-semibold text-zinc-900">
+            Reports
+          </h1>
+        </>
+      ) : null}
 
-      <nav className="mt-6 flex flex-col gap-1">
+      <nav className={cn("flex flex-col gap-1", showHeader ? "mt-6" : "mt-2")}>
         {dashboardViews.map((view) => (
           <button
             key={view.id}
@@ -169,9 +181,7 @@ export function DashboardSidebar({
             }}
           >
             <SelectTrigger className="w-full rounded-2xl border-zinc-200">
-              <SelectValue>
-                {TIMEFRAMES.find((item) => item.id === trendTimeframe)?.label}
-              </SelectValue>
+              <SelectValue placeholder={loading ? "…" : "Trends"} />
             </SelectTrigger>
             <SelectContent>
               {TIMEFRAMES.map((item) => (
@@ -197,12 +207,7 @@ export function DashboardSidebar({
             }}
           >
             <SelectTrigger className="w-full rounded-2xl border-zinc-200">
-              <SelectValue>
-                {
-                  TIMEFRAMES.find((item) => item.id === spendingTimeframe)
-                    ?.label
-                }
-              </SelectValue>
+              <SelectValue placeholder={loading ? "…" : "Spending"} />
             </SelectTrigger>
             <SelectContent>
               {TIMEFRAMES.map((item) => (
@@ -225,9 +230,7 @@ export function DashboardSidebar({
             }}
           >
             <SelectTrigger className="w-full rounded-2xl border-zinc-200">
-              <SelectValue placeholder="Apply preset">
-                {selectedPresetName}
-              </SelectValue>
+              <SelectValue placeholder={loading ? "…" : "Preset"} />
             </SelectTrigger>
             <SelectContent>
               {presets.map((preset) => (
@@ -426,9 +429,12 @@ export function DashboardSidebar({
             <p
               className={cn(syncStale ? "text-amber-700" : "text-zinc-500")}
               title={formatSyncTimestamp(lastSyncedAt)}
+              suppressHydrationWarning
             >
-              {formatSyncAge(lastSyncedAt, now)}
-              {syncStale ? " · data may be stale" : ""}
+              {now != null
+                ? formatSyncAge(lastSyncedAt, now)
+                : formatSyncTimestamp(lastSyncedAt)}
+              {syncStale && now != null ? " · data may be stale" : ""}
             </p>
           ) : (
             <p className="text-zinc-500">Not synced yet</p>
@@ -446,6 +452,78 @@ export function DashboardSidebar({
           </div>
         ) : null}
       </div>
+    </>
+  );
+}
+
+type DashboardSidebarProps = {
+  active: DashboardView;
+  onNavigate: (view: DashboardView) => void;
+};
+
+export function DashboardMobileNav({
+  active,
+  onNavigate,
+}: DashboardSidebarProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const activeLabel =
+    dashboardViews.find((view) => view.id === active)?.label ?? "Reports";
+
+  function handleNavigate(view: DashboardView) {
+    onNavigate(view);
+    setMenuOpen(false);
+  }
+
+  return (
+    <>
+      <header className="sticky top-0 z-30 -mx-4 mb-2 flex items-center gap-3 border-b border-zinc-200/80 bg-[#f6f4f0]/95 px-4 py-3 backdrop-blur-sm md:hidden">
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="shrink-0 rounded-xl"
+          aria-label="Open menu"
+          onClick={() => setMenuOpen(true)}
+        >
+          <Menu className="size-5" />
+        </Button>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs tracking-wide text-emerald-700 uppercase">
+            Actual reports
+          </p>
+          <p className="truncate font-semibold text-zinc-900">{activeLabel}</p>
+        </div>
+      </header>
+
+      <Dialog open={menuOpen} onOpenChange={setMenuOpen}>
+        <DialogContent
+          showCloseButton
+          className="fixed inset-y-0 left-0 top-0 flex h-dvh w-[min(100vw,18rem)] max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none rounded-r-[2rem] border-0 bg-white p-0 shadow-xl data-open:slide-in-from-left data-closed:slide-out-to-left sm:max-w-none"
+        >
+          <div className="shrink-0 border-b border-zinc-100 px-4 py-3 pr-14">
+            <p className="font-semibold text-zinc-900">Menu</p>
+            <p className="text-xs text-zinc-500">Reports & filters</p>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto p-4">
+            <DashboardSidebarPanel
+              active={active}
+              onNavigate={handleNavigate}
+              showHeader={false}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+export function DashboardSidebar({
+  active,
+  onNavigate,
+}: DashboardSidebarProps) {
+  return (
+    <aside className="hidden w-64 shrink-0 flex-col rounded-[2rem] bg-white p-4 shadow-sm md:flex">
+      <DashboardSidebarPanel active={active} onNavigate={onNavigate} />
     </aside>
   );
 }

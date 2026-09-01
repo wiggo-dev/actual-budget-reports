@@ -34,8 +34,12 @@ import { timeframeLabel } from "@/lib/reports/timeframe";
 import { monthlySavingsRates, savingsRate } from "@/lib/reports/savings-rate";
 import { cn } from "@/lib/utils";
 
-const netWorthConfig = {
+const netWorthOverviewConfig = {
   netWorth: { label: "Net worth", color: "#ecfccb" },
+} satisfies ChartConfig;
+
+const netWorthReportConfig = {
+  netWorth: { label: "Net worth", color: "#0f766e" },
 } satisfies ChartConfig;
 
 const incomeExpenseConfig = {
@@ -198,13 +202,18 @@ export function NetWorthChart({
   if (!data?.length)
     return <ChartError message="No net worth data available." />;
 
+  const lineColor = compact ? "#ecfccb" : "#0f766e";
+
   return (
     <ChartContainer
-      config={netWorthConfig}
+      config={compact ? netWorthOverviewConfig : netWorthReportConfig}
       className={cn(compact ? "h-36 w-full" : "h-[280px] w-full", className)}
     >
       <LineChart data={data} accessibilityLayer>
-        <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.12)" />
+        <CartesianGrid
+          vertical={false}
+          stroke={compact ? "rgba(255,255,255,0.12)" : undefined}
+        />
         <XAxis
           dataKey="month"
           tickLine={false}
@@ -219,17 +228,17 @@ export function NetWorthChart({
           />
         ) : null}
         <ChartTooltip
-          cursor={{ stroke: "rgba(255,255,255,0.25)" }}
+          cursor={compact ? { stroke: "rgba(255,255,255,0.25)" } : undefined}
           content={<MoneyTooltip money={money} />}
         />
         <Line
           type="monotone"
           dataKey="netWorth"
           name="Net worth"
-          stroke="#ecfccb"
-          strokeWidth={compact ? 2.5 : 2}
+          stroke={lineColor}
+          strokeWidth={compact ? 2.5 : 2.5}
           dot={false}
-          activeDot={{ r: 4, fill: "#ecfccb" }}
+          activeDot={{ r: 4, fill: lineColor }}
         />
       </LineChart>
     </ChartContainer>

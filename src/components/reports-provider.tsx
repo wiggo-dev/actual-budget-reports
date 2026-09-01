@@ -15,6 +15,7 @@ import type { AccountPreset, Settings } from "@/lib/settings/types";
 import { readDashboardUrlState } from "@/lib/dashboard-url";
 import { timeframeMonths, type Timeframe } from "@/lib/reports/timeframe";
 import { createId } from "@/lib/utils";
+import { useSearchParams } from "next/navigation";
 
 type AccountSummary = {
   id: string;
@@ -81,21 +82,24 @@ function buildQueryString(
   return value ? `?${value}` : "";
 }
 
-function initialUrlOverrides() {
-  if (typeof window === "undefined") {
-    return {};
-  }
-  return readDashboardUrlState(new URLSearchParams(window.location.search));
-}
-
 export function ReportsProvider({ children }: { children: ReactNode }) {
+  const searchParams = useSearchParams();
+  const initialUrl = readDashboardUrlState(searchParams);
+
   const [accounts, setAccounts] = useState<AccountSummary[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
-  const [excludedAccountIds, setExcludedAccountIds] = useState<string[]>([]);
-  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
-  const [trendTimeframe, setTrendTimeframeState] = useState<Timeframe>("12m");
-  const [spendingTimeframe, setSpendingTimeframeState] =
-    useState<Timeframe>("this-month");
+  const [excludedAccountIds, setExcludedAccountIds] = useState<string[]>(
+    () => initialUrl.excludedAccountIds ?? []
+  );
+  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(
+    () => initialUrl.presetId ?? null
+  );
+  const [trendTimeframe, setTrendTimeframeState] = useState<Timeframe>(
+    () => initialUrl.trend ?? "12m"
+  );
+  const [spendingTimeframe, setSpendingTimeframeState] = useState<Timeframe>(
+    () => initialUrl.spending ?? "this-month"
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [configured, setConfigured] = useState(true);
@@ -105,7 +109,11 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
   const [syncIntervalMs, setSyncIntervalMs] = useState(300_000);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
-  const urlOverridesRef = useRef(initialUrlOverrides());
+  const urlOverridesRef = useRef(initialUrl);
+
+  useEffect(() => {
+    urlOverridesRef.current = readDashboardUrlState(searchParams);
+  }, [searchParams]);
 
   const fetchSyncStatus = useCallback(async () => {
     const response = await fetch("/api/sync/status");

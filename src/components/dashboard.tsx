@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import {
+  DashboardMobileNav,
   DashboardSidebar,
   type DashboardView,
 } from "@/components/dashboard-sidebar";
@@ -86,41 +87,44 @@ function DashboardBody() {
   }
 
   return (
-    <div className="flex min-h-screen gap-4 bg-[#f6f4f0] p-4 font-sans md:gap-6 md:p-6">
+    <div className="flex min-h-dvh flex-col bg-[#f6f4f0] p-4 font-sans md:flex-row md:items-start md:gap-6 md:p-6">
       <DashboardSidebar active={activeView} onNavigate={setActiveView} />
-      <main className="min-w-0 flex-1">
-        {error ? (
-          <div
-            className="mb-4 rounded-[2rem] bg-white p-4 text-sm text-rose-600 shadow-sm"
-            role="alert"
-          >
-            {error}
-          </div>
-        ) : null}
-        {loading ? (
-          <p className="text-sm text-zinc-500">Connecting to Actual Budget…</p>
-        ) : activeView === "overview" ? (
-          <DashboardOverview />
-        ) : (
-          <DashboardReportView view={activeView} />
-        )}
-      </main>
+      <div className="min-w-0 flex-1">
+        <DashboardMobileNav active={activeView} onNavigate={setActiveView} />
+        <main className="min-w-0 pb-4">
+          {error ? (
+            <div
+              className="mb-4 rounded-[2rem] bg-white p-4 text-sm text-rose-600 shadow-sm"
+              role="alert"
+            >
+              {error}
+            </div>
+          ) : null}
+          {loading ? (
+            <p className="text-sm text-zinc-500">
+              Connecting to Actual Budget…
+            </p>
+          ) : activeView === "overview" ? (
+            <DashboardOverview />
+          ) : (
+            <DashboardReportView view={activeView} />
+          )}
+        </main>
+      </div>
     </div>
   );
 }
 
 export function Dashboard() {
   return (
-    <ReportsProvider>
-      <Suspense
-        fallback={
-          <p className="p-6 text-sm text-zinc-500">Loading dashboard…</p>
-        }
-      >
+    <Suspense
+      fallback={<p className="p-6 text-sm text-zinc-500">Loading dashboard…</p>}
+    >
+      <ReportsProvider>
         <TransactionDrilldownProvider>
           <DashboardBody />
         </TransactionDrilldownProvider>
-      </Suspense>
-    </ReportsProvider>
+      </ReportsProvider>
+    </Suspense>
   );
 }
