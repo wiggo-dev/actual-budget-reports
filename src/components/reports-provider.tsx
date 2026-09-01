@@ -22,6 +22,12 @@ import type { SpendingAggregation } from "@/lib/reports/spending-by-category";
 import { priorYearScope } from "@/lib/reports/yoy";
 import type { OverviewModuleId } from "@/lib/overview-modules";
 import { overviewModules } from "@/lib/overview-modules";
+import type { ThemeMode } from "@/lib/theme";
+import {
+  applyThemeMode,
+  cacheThemeMode,
+  readCachedThemeMode,
+} from "@/lib/theme-client";
 import { timeframeMonths, type Timeframe } from "@/lib/reports/timeframe";
 import { createId } from "@/lib/utils";
 import { useSearchParams } from "next/navigation";
@@ -65,6 +71,7 @@ type ReportsContextValue = {
   spendingLevel: SpendingAggregation;
   yoyCompare: boolean;
   hiddenOverviewModules: string[];
+  theme: ThemeMode;
   setTrendTimeframe: (timeframe: Timeframe) => void;
   setSpendingTimeframe: (timeframe: Timeframe) => void;
   setTrendCustomRange: (range: CustomDateRange) => void;
@@ -75,6 +82,7 @@ type ReportsContextValue = {
     moduleId: OverviewModuleId,
     visible: boolean
   ) => void;
+  setTheme: (theme: ThemeMode) => void;
   trendScopeLabel: string;
   spendingScopeLabel: string;
   currency: string;
@@ -252,6 +260,8 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
   const [hiddenOverviewModules, setHiddenOverviewModulesState] = useState<
     string[]
   >([]);
+  // Keep SSR and the first client render aligned; boot script + cache hydrate after mount.
+  const [theme, setThemeState] = useState<ThemeMode>("light");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [configured, setConfigured] = useState(true);
@@ -328,6 +338,9 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
       setCategories(categoryRows.categories);
       setSettings(savedSettings);
       setHiddenOverviewModulesState(savedSettings.hiddenOverviewModules ?? []);
+      const savedTheme = savedSettings.theme ?? "light";
+      setThemeState(savedTheme);
+      cacheThemeMode(savedTheme);
       setCurrency(preferenceRows.currency || "GBP");
 
       const url = readDashboardUrlState(searchParams);
@@ -732,6 +745,38 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
     setYoYCompareState(enabled);
   }, []);
 
+  useEffect(() => {
+    setThemeState(readCachedThemeMode());
+  }, []);
+
+  useEffect(() => {
+    applyThemeMode(theme);
+
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const onChange = () => applyThemeMode(theme);
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
+  }, [theme]);
+
+  const setTheme = useCallback(
+    (next: ThemeMode) => {
+      if (!settings) {
+        setThemeState(next);
+        cacheThemeMode(next);
+        return;
+      }
+
+      setThemeState(next);
+      cacheThemeMode(next);
+      void persistSettings({
+        ...settings,
+        theme: next,
+      });
+      setSettings({ ...settings, theme: next });
+    },
+    [persistSettings, settings]
+  );
+
   const setOverviewModuleVisible = useCallback(
     (moduleId: OverviewModuleId, visible: boolean) => {
       if (!settings) {
@@ -881,6 +926,7 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
       spendingLevel,
       yoyCompare,
       hiddenOverviewModules,
+      theme,
       setTrendTimeframe,
       setSpendingTimeframe,
       setTrendCustomRange,
@@ -888,6 +934,7 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
       setSpendingLevel,
       setYoYCompare,
       setOverviewModuleVisible,
+      setTheme,
       trendScopeLabel,
       spendingScopeLabel,
       currency,
@@ -928,6 +975,7 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
       spendingLevel,
       yoyCompare,
       hiddenOverviewModules,
+      theme,
       setTrendTimeframe,
       setSpendingTimeframe,
       setTrendCustomRange,
@@ -935,6 +983,7 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
       setSpendingLevel,
       setYoYCompare,
       setOverviewModuleVisible,
+      setTheme,
       trendScopeLabel,
       spendingScopeLabel,
       currency,

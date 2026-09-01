@@ -110,17 +110,17 @@ export function DashboardOverview() {
   const showAccounts = useOverviewModuleVisible("accounts");
 
   if (stats.loading) {
-    return <p className="text-sm text-zinc-500">Loading overview…</p>;
+    return <p className="text-sm dashboard-muted">Loading overview…</p>;
   }
 
   if (stats.error) {
     return (
-      <div className="rounded-[2rem] bg-white p-6 shadow-sm" role="alert">
-        <h2 className="text-lg font-semibold text-zinc-900">
+      <div className="dashboard-card p-6" role="alert">
+        <h2 className="text-lg font-semibold dashboard-text">
           Could not load report data
         </h2>
         <p className="mt-2 text-sm text-rose-600">{stats.error}</p>
-        <p className="mt-3 text-sm text-zinc-500">
+        <p className="mt-3 text-sm dashboard-muted">
           For local dev, set{" "}
           <code className="rounded bg-zinc-100 px-1.5 py-0.5">
             ACTUAL_SERVER_URL=http://localhost:5006
@@ -162,19 +162,19 @@ export function DashboardOverview() {
         ) : null}
 
         {showSavingsRate ? (
-          <div className="rounded-[2rem] bg-white p-6 shadow-sm md:col-span-2">
-            <p className="text-sm text-zinc-500">
+          <div className="dashboard-card p-6 md:col-span-2">
+            <p className="text-sm dashboard-muted">
               Savings rate · {stats.trendTimeframeLabel.toLowerCase()}
             </p>
             <p
-              className="mt-2 text-3xl font-semibold text-zinc-900"
+              className="mt-2 text-3xl font-semibold dashboard-text"
               data-privacy-value
             >
               {stats.periodSavingsRate != null
                 ? formatRate(stats.periodSavingsRate)
                 : "—"}
             </p>
-            <p className="text-sm text-zinc-500">
+            <p className="text-sm dashboard-muted">
               {stats.periodSavingsRate == null
                 ? "Need income in this period"
                 : "of income kept"}
@@ -184,12 +184,12 @@ export function DashboardOverview() {
         ) : null}
 
         {showSpendingPeriod ? (
-          <div className="rounded-[2rem] bg-white p-6 shadow-sm md:col-span-2">
-            <p className="text-sm text-zinc-500">
+          <div className="dashboard-card p-6 md:col-span-2">
+            <p className="text-sm dashboard-muted">
               {stats.spendingTimeframeLabel}
             </p>
             <p
-              className="mt-2 text-3xl font-semibold text-zinc-900"
+              className="mt-2 text-3xl font-semibold dashboard-text"
               data-privacy-value
             >
               {stats.periodExpenses != null ? money(stats.periodExpenses) : "—"}
@@ -215,8 +215,8 @@ export function DashboardOverview() {
         ) : null}
 
         {showSpendingMix ? (
-          <div className="rounded-[2rem] bg-white p-6 shadow-sm md:col-span-3">
-            <p className="mb-4 text-sm text-zinc-500">
+          <div className="dashboard-card p-6 md:col-span-3">
+            <p className="mb-4 text-sm dashboard-muted">
               Spending mix · {stats.spendingTimeframeLabel.toLowerCase()}
             </p>
             <SpendingDonutChart compact showLegend />
@@ -224,8 +224,8 @@ export function DashboardOverview() {
         ) : null}
 
         {showCashFlow ? (
-          <div className="rounded-[2rem] bg-lime-200 p-6 md:col-span-3">
-            <p className="mb-4 text-sm text-emerald-900/70">
+          <div className="dashboard-cashflow rounded-[2rem] p-6 md:col-span-3">
+            <p className="mb-4 text-sm text-emerald-900/70 dark:text-emerald-100/70">
               Cash flow · {stats.trendTimeframeLabel.toLowerCase()}
             </p>
             <CashFlowChart compact />
@@ -237,15 +237,15 @@ export function DashboardOverview() {
         ) : null}
 
         {showAccounts ? (
-          <div className="rounded-[2rem] bg-white p-6 shadow-sm md:col-span-6">
+          <div className="dashboard-card p-6 md:col-span-6">
             <button
               type="button"
               className={cn(
                 "flex w-full items-center justify-between gap-4 rounded-2xl border px-4 py-3 text-left transition-colors",
                 "hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2 focus-visible:outline-none",
                 accountsExpanded
-                  ? "border-zinc-200 bg-zinc-50"
-                  : "border-dashed border-zinc-300 bg-zinc-50/80"
+                  ? "border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800/80"
+                  : "border-dashed border-zinc-300 bg-zinc-50/80 dark:border-zinc-700 dark:bg-zinc-800/40"
               )}
               aria-expanded={accountsExpanded}
               aria-controls="overview-accounts-panel"
@@ -259,14 +259,14 @@ export function DashboardOverview() {
               }}
             >
               <div className="min-w-0">
-                <p className="text-sm font-medium text-zinc-900">Accounts</p>
-                <p className="mt-0.5 text-sm text-zinc-500">
+                <p className="text-sm font-medium dashboard-text">Accounts</p>
+                <p className="mt-0.5 text-sm dashboard-muted">
                   {includedAccountCount}{" "}
                   {includedAccountCount === 1 ? "account" : "accounts"} included
                   {!accountsExpanded ? " · balances hidden" : null}
                 </p>
               </div>
-              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 shadow-sm ring-1 ring-zinc-200">
+              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 shadow-sm ring-1 ring-zinc-200 dark:bg-zinc-900 dark:text-zinc-200 dark:ring-zinc-700">
                 {accountsExpanded ? "Hide balances" : "Show balances"}
                 <ChevronDown
                   className={cn(
@@ -312,11 +312,11 @@ export function DashboardReportPanel({
   children: ReactNode;
 }) {
   return (
-    <div className="rounded-[2rem] bg-white p-6 shadow-sm">
+    <div className="dashboard-card p-6">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-2xl font-semibold text-zinc-900">{title}</h2>
-          <p className="mt-1 text-sm text-zinc-500">{description}</p>
+          <h2 className="text-2xl font-semibold dashboard-text">{title}</h2>
+          <p className="mt-1 text-sm dashboard-muted">{description}</p>
         </div>
         {exportView ? <ReportExportButton view={exportView} /> : null}
       </div>

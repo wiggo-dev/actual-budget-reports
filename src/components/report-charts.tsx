@@ -143,9 +143,9 @@ function MoneyTooltip({
   }
 
   return (
-    <div className="grid min-w-40 gap-1.5 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-900 shadow-lg">
+    <div className="chart-tooltip">
       {label != null && label !== "" ? (
-        <p className="font-medium text-zinc-500">{String(label)}</p>
+        <p className="font-medium dashboard-muted">{String(label)}</p>
       ) : null}
       <div className="grid gap-1.5">
         {payload.map((item) => {
@@ -164,7 +164,7 @@ function MoneyTooltip({
                   className="size-2.5 shrink-0 rounded-full"
                   style={{ background: item.color ?? "#71717a" }}
                 />
-                <span className="text-zinc-600">
+                <span className="dashboard-muted">
                   {item.name ?? String(item.dataKey ?? "Value")}
                 </span>
               </div>
@@ -203,21 +203,15 @@ function ToggleGroup<T extends string>({
   label: string;
 }) {
   return (
-    <div
-      className="inline-flex rounded-xl border border-zinc-200 bg-zinc-50 p-1 text-sm"
-      role="group"
-      aria-label={label}
-    >
+    <div className="dashboard-segment" role="group" aria-label={label}>
       {options.map(([option, optionLabel]) => (
         <button
           key={option}
           type="button"
           aria-pressed={value === option}
           className={cn(
-            "rounded-lg px-3 py-1.5 font-medium transition-colors",
-            value === option
-              ? "bg-white text-zinc-900 shadow-sm"
-              : "text-zinc-500 hover:text-zinc-700"
+            "dashboard-segment-btn",
+            value === option && "dashboard-segment-btn-active"
           )}
           onClick={() => onChange(option)}
         >
@@ -251,7 +245,7 @@ function YoYToggle({
 }
 
 function YoYHelpText({ scopeLabel }: { scopeLabel: string }) {
-  return <p className="text-sm text-zinc-500">{yoyHelpText(scopeLabel)}</p>;
+  return <p className="text-sm dashboard-muted">{yoyHelpText(scopeLabel)}</p>;
 }
 
 function AccountGroup({
@@ -269,17 +263,16 @@ function AccountGroup({
 
   return (
     <div className="space-y-3">
-      <p className="text-xs tracking-wide text-zinc-500 uppercase">{title}</p>
+      <p className="text-xs tracking-wide dashboard-muted uppercase">{title}</p>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {accounts.map((account) => (
           <div
             key={account.id}
-            className={cn(
-              "rounded-2xl px-4 py-4",
+            className={
               account.balance < 0
-                ? "bg-rose-100 text-rose-800"
-                : "bg-zinc-50 text-zinc-900"
-            )}
+                ? "account-tile-negative"
+                : "account-tile-positive"
+            }
           >
             <p className="text-sm opacity-80">{account.name}</p>
             <p className="mt-1 text-lg font-semibold tabular-nums">
@@ -518,7 +511,7 @@ function SpendingLevelToggle({
 }) {
   return (
     <div
-      className="inline-flex rounded-xl border border-zinc-200 bg-zinc-50 p-1 text-sm"
+      className="dashboard-segment"
       role="group"
       aria-label="Spending aggregation"
     >
@@ -533,10 +526,8 @@ function SpendingLevelToggle({
           type="button"
           aria-pressed={value === level}
           className={cn(
-            "rounded-lg px-3 py-1.5 font-medium transition-colors",
-            value === level
-              ? "bg-white text-zinc-900 shadow-sm"
-              : "text-zinc-500 hover:text-zinc-700"
+            "dashboard-segment-btn",
+            value === level && "dashboard-segment-btn-active"
           )}
           onClick={() => onChange(level)}
         >
@@ -724,7 +715,7 @@ function SpendingDonutView({
                 <button
                   type="button"
                   className={cn(
-                    "truncate text-left text-zinc-700",
+                    "truncate text-left dashboard-text",
                     hidden && "line-through",
                     onCategoryClick &&
                       item.category !== "Other" &&
@@ -739,7 +730,7 @@ function SpendingDonutView({
                 >
                   {item.category}
                 </button>
-                <span className="shrink-0 font-mono tabular-nums text-zinc-900">
+                <span className="shrink-0 font-mono tabular-nums dashboard-text">
                   {money(item.amount)}
                 </span>
               </li>
@@ -922,7 +913,7 @@ export function SpendingByCategoryChart() {
 
       {donut.data?.length ? (
         <div className="space-y-2">
-          <p className="text-sm text-zinc-500">
+          <p className="text-sm dashboard-muted">
             {expandedGroup
               ? `Categories in ${expandedGroup.name}`
               : `Spending by ${aggregationLabel}`}
@@ -944,7 +935,7 @@ export function SpendingByCategoryChart() {
 
       {points.length ? (
         <div className="space-y-2">
-          <p className="text-sm text-zinc-500">
+          <p className="text-sm dashboard-muted">
             {yoyCompare
               ? "Monthly spending total vs last year"
               : `Monthly trend by ${spendingLevel === "group" ? "category group" : "category"}`}
@@ -1134,7 +1125,7 @@ export function PayeeSpendingChart() {
 
       <div className="overflow-auto">
         <table className="w-full text-left text-sm">
-          <thead className="text-xs tracking-wide text-zinc-500 uppercase">
+          <thead className="text-xs tracking-wide dashboard-muted uppercase">
             <tr>
               <th className="py-2 pr-3 font-medium">Payee</th>
               <th className="py-2 text-right font-medium">Spent</th>
@@ -1144,18 +1135,18 @@ export function PayeeSpendingChart() {
             {data.map((row) => (
               <tr
                 key={`${row.payeeId ?? row.payee}`}
-                className="border-t border-zinc-100"
+                className="border-t border-zinc-100 dark:border-zinc-800"
               >
                 <td className="py-2 pr-3">
                   <button
                     type="button"
-                    className="text-left text-zinc-900 hover:underline"
+                    className="text-left dashboard-text hover:underline"
                     onClick={() => openPayee(row)}
                   >
                     {row.payee}
                   </button>
                 </td>
-                <td className="py-2 text-right font-mono tabular-nums text-zinc-900">
+                <td className="py-2 text-right font-mono tabular-nums dashboard-text">
                   {money(row.amount)}
                 </td>
               </tr>

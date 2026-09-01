@@ -81,6 +81,11 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --dashboard-canvas: #f6f4f0;
+  --dashboard-card: #ffffff;
+  --dashboard-subtle: #fafafa;
+  --dashboard-accent-surface: #ecfccb;
+  --dashboard-cashflow: #d9f99d;
 }
 
 .dark {
@@ -115,6 +120,11 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  --dashboard-canvas: oklch(0.16 0.01 155);
+  --dashboard-card: oklch(0.21 0.01 155);
+  --dashboard-subtle: oklch(0.24 0.01 155);
+  --dashboard-accent-surface: oklch(0.28 0.04 155);
+  --dashboard-cashflow: oklch(0.27 0.05 155);
 }
 
 @layer base {
@@ -140,4 +150,73 @@ html.privacy-mode [data-slot="chart"] {
 html.privacy-mode [data-slot="chart"] {
   filter: blur(10px);
   pointer-events: none;
+}
+
+@layer components {
+  .dashboard-canvas {
+    background-color: var(--dashboard-canvas);
+  }
+
+  .dashboard-card {
+    border-radius: 2rem;
+    background-color: var(--dashboard-card);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+  }
+
+  .dark .dashboard-card {
+    box-shadow: none;
+    outline: 1px solid oklch(1 0 0 / 8%);
+  }
+
+  .dashboard-subtle {
+    background-color: var(--dashboard-subtle);
+  }
+
+  .dashboard-cashflow {
+    background-color: var(--dashboard-cashflow);
+  }
+
+  .dashboard-muted {
+    @apply text-zinc-500 dark:text-zinc-400;
+  }
+
+  .dashboard-text {
+    @apply text-zinc-900 dark:text-zinc-100;
+  }
+
+  .dashboard-toolbar {
+    @apply border-zinc-200/80 bg-white/90 dark:border-white/10 dark:bg-zinc-900/90;
+  }
+
+  .dashboard-sidebar {
+    @apply rounded-[2rem] bg-white p-4 shadow-sm dark:bg-zinc-900 dark:shadow-none dark:outline dark:outline-1 dark:-outline-offset-1 dark:outline-white/10;
+  }
+
+  .dashboard-segment {
+    @apply inline-flex rounded-xl border border-zinc-200 bg-zinc-50 p-1 text-sm dark:border-zinc-700 dark:bg-zinc-800/80;
+  }
+
+  .dashboard-segment-btn {
+    @apply rounded-lg px-3 py-1.5 font-medium text-zinc-500 transition-colors hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200;
+  }
+
+  .dashboard-segment-btn-active {
+    @apply bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-100;
+  }
+
+  .chart-tooltip {
+    @apply grid min-w-40 gap-1.5 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-900 shadow-lg dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100;
+  }
+
+  .account-tile-positive {
+    @apply rounded-2xl bg-zinc-50 px-4 py-4 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100;
+  }
+
+  .account-tile-negative {
+    @apply rounded-2xl bg-rose-100 px-4 py-4 text-rose-800 dark:bg-rose-950/60 dark:text-rose-200;
+  }
+
+  .dark [data-slot="chart"] .recharts-cartesian-axis-tick text {
+    fill: oklch(0.65 0 0);
+  }
 }

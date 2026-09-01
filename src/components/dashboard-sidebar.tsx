@@ -45,11 +45,11 @@ export { dashboardViews };
 function TimeframeInfo({ label, detail }: { label: string; detail: string }) {
   return (
     <div className="flex items-center gap-1 px-1">
-      <Label className="text-xs text-zinc-500">{label}</Label>
+      <Label className="text-xs dashboard-muted">{label}</Label>
       <Tooltip>
         <TooltipTrigger
           type="button"
-          className="rounded-full p-0.5 text-zinc-400 transition-colors hover:text-zinc-600"
+          className="rounded-full p-0.5 text-zinc-400 transition-colors hover:text-zinc-600 dark:hover:text-zinc-300"
           aria-label={`${label} details`}
         >
           <Info className="size-3.5" />
@@ -157,10 +157,10 @@ function DashboardSidebarPanel({
     <>
       {showHeader ? (
         <>
-          <p className="px-2 text-xs tracking-[0.2em] text-emerald-700 uppercase">
+          <p className="px-2 text-xs tracking-[0.2em] text-emerald-700 uppercase dark:text-emerald-400">
             Actual reports
           </p>
-          <h1 className="mt-2 px-2 text-lg font-semibold text-zinc-900">
+          <h1 className="mt-2 px-2 text-lg font-semibold dashboard-text">
             Reports
           </h1>
         </>
@@ -175,8 +175,8 @@ function DashboardSidebarPanel({
             className={cn(
               "rounded-2xl px-3 py-2.5 text-left text-sm transition-colors",
               active === view.id
-                ? "bg-lime-300 font-medium text-zinc-900"
-                : "text-zinc-600 hover:bg-zinc-50"
+                ? "bg-lime-300 font-medium text-zinc-900 dark:bg-emerald-800 dark:text-emerald-50"
+                : "text-zinc-600 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
             )}
           >
             {view.label}
@@ -256,7 +256,7 @@ function DashboardSidebarPanel({
         </div>
 
         <div className="space-y-1.5">
-          <Label className="px-1 text-xs text-zinc-500">Preset</Label>
+          <Label className="px-1 text-xs dashboard-muted">Preset</Label>
           <Select
             value={selectedPresetId}
             onValueChange={(value) => {
@@ -323,7 +323,7 @@ function DashboardSidebarPanel({
             <DialogHeader>
               <DialogTitle>Included accounts</DialogTitle>
             </DialogHeader>
-            <p className="text-sm text-zinc-500">
+            <p className="text-sm dashboard-muted">
               All accounts are included by default. Uncheck accounts to exclude
               them from reports.
             </p>
@@ -337,7 +337,7 @@ function DashboardSidebarPanel({
                 ).map(([group, groupAccounts]) =>
                   groupAccounts.length === 0 ? null : (
                     <div key={group} className="space-y-3">
-                      <p className="text-xs tracking-wide text-zinc-500 uppercase">
+                      <p className="text-xs tracking-wide dashboard-muted uppercase">
                         {group}
                       </p>
                       {groupAccounts.map((account) => {
@@ -392,7 +392,7 @@ function DashboardSidebarPanel({
 
               {presets.length > 0 && editTargetId ? (
                 <div className="w-full space-y-2 border-t border-zinc-100 pt-4">
-                  <Label className="text-xs text-zinc-500">
+                  <Label className="text-xs dashboard-muted">
                     Existing preset
                   </Label>
                   <Select
@@ -478,7 +478,7 @@ function DashboardSidebarPanel({
             <DialogHeader>
               <DialogTitle>Included categories</DialogTitle>
             </DialogHeader>
-            <p className="text-sm text-zinc-500">
+            <p className="text-sm dashboard-muted">
               All categories are included by default. Uncheck groups or
               categories to exclude them from spending reports.
             </p>
@@ -513,7 +513,7 @@ function DashboardSidebarPanel({
                           return (
                             <label
                               key={category.id}
-                              className="flex items-center gap-3 text-sm text-zinc-700"
+                              className="flex items-center gap-3 text-sm dashboard-text"
                             >
                               <Checkbox
                                 checked={included}
@@ -592,7 +592,7 @@ export function DashboardMobileNav({
 
   return (
     <>
-      <header className="sticky top-0 z-30 -mx-4 mb-2 flex items-center gap-3 border-b border-zinc-200/80 bg-[#f6f4f0]/95 px-4 py-3 backdrop-blur-sm md:hidden">
+      <header className="sticky top-0 z-30 -mx-4 mb-2 flex items-center gap-3 border-b border-zinc-200/80 bg-[#f6f4f0]/95 px-4 py-3 backdrop-blur-sm dark:border-white/10 dark:bg-zinc-950/95 md:hidden">
         <Button
           type="button"
           variant="outline"
@@ -604,10 +604,10 @@ export function DashboardMobileNav({
           <Menu className="size-5" />
         </Button>
         <div className="min-w-0 flex-1">
-          <p className="text-xs tracking-wide text-emerald-700 uppercase">
+          <p className="text-xs tracking-wide text-emerald-700 uppercase dark:text-emerald-400">
             Actual reports
           </p>
-          <p className="truncate font-semibold text-zinc-900">{activeLabel}</p>
+          <p className="truncate font-semibold dashboard-text">{activeLabel}</p>
         </div>
         <DashboardToolbar compact />
       </header>
@@ -615,11 +615,11 @@ export function DashboardMobileNav({
       <Dialog open={menuOpen} onOpenChange={setMenuOpen}>
         <DialogContent
           showCloseButton
-          className="fixed inset-y-0 left-0 top-0 flex h-dvh w-[min(100vw,18rem)] max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none rounded-r-[2rem] border-0 bg-white p-0 shadow-xl data-open:slide-in-from-left data-closed:slide-out-to-left sm:max-w-none"
+          className="fixed inset-y-0 left-0 top-0 flex h-dvh w-[min(100vw,18rem)] max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none rounded-r-[2rem] border-0 bg-white p-0 shadow-xl dark:bg-zinc-900 data-open:slide-in-from-left data-closed:slide-out-to-left sm:max-w-none"
         >
-          <div className="shrink-0 border-b border-zinc-100 px-4 py-3 pr-14">
-            <p className="font-semibold text-zinc-900">Menu</p>
-            <p className="text-xs text-zinc-500">Reports & filters</p>
+          <div className="shrink-0 border-b border-zinc-100 px-4 py-3 pr-14 dark:border-zinc-800">
+            <p className="font-semibold dashboard-text">Menu</p>
+            <p className="text-xs dashboard-muted">Reports & filters</p>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-4">
             <DashboardSidebarPanel
@@ -639,7 +639,7 @@ export function DashboardSidebar({
   onNavigate,
 }: DashboardSidebarProps) {
   return (
-    <aside className="hidden w-64 shrink-0 flex-col rounded-[2rem] bg-white p-4 shadow-sm md:flex">
+    <aside className="dashboard-sidebar hidden w-64 shrink-0 flex-col md:flex">
       <DashboardSidebarPanel active={active} onNavigate={onNavigate} />
     </aside>
   );

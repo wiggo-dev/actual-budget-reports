@@ -55,7 +55,7 @@ export function OverviewCustomizeDialog() {
             return (
               <label
                 key={module.id}
-                className="flex items-center gap-3 rounded-xl border border-zinc-200 px-3 py-2.5"
+                className="flex items-center gap-3 rounded-xl border border-zinc-200 px-3 py-2.5 dark:border-zinc-700"
               >
                 <Checkbox
                   checked={visible}
@@ -63,7 +63,7 @@ export function OverviewCustomizeDialog() {
                     setOverviewModuleVisible(module.id, checked === true)
                   }
                 />
-                <Label className="text-sm font-medium text-zinc-900">
+                <Label className="text-sm font-medium dashboard-text">
                   {module.label}
                 </Label>
               </label>
@@ -71,7 +71,7 @@ export function OverviewCustomizeDialog() {
           })}
         </div>
         <DialogFooter>
-          <p className="w-full text-left text-xs text-zinc-500">
+          <p className="w-full text-left text-xs dashboard-muted">
             At least one card should stay visible.
           </p>
         </DialogFooter>

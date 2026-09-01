@@ -48,6 +48,7 @@ export const settingsSchema = z.object({
   trendTimeframe: timeframeSchema.optional(),
   spendingTimeframe: timeframeSchema.optional(),
   hiddenOverviewModules: z.array(z.string()).default([]),
+  theme: z.enum(["light", "dark", "system"]).default("light"),
 });
 
 export type Settings = z.infer<typeof settingsSchema>;
@@ -68,4 +69,5 @@ export const defaultSettings: Settings = {
   trendTimeframe: "12m",
   spendingTimeframe: "this-month",
   hiddenOverviewModules: [],
+  theme: "light",
 };

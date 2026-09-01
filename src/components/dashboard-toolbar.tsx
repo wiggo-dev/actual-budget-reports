@@ -4,6 +4,7 @@ import { RefreshCw } from "lucide-react";
 import { useSyncExternalStore } from "react";
 
 import { PrivacyModeToggle } from "@/components/privacy-mode";
+import { ThemeModeToggle } from "@/components/theme-mode";
 import { useReportsContext } from "@/components/reports-provider";
 import { Button } from "@/components/ui/button";
 import {
@@ -65,10 +66,15 @@ export function DashboardToolbar({
       Sync failed — {syncError}
     </p>
   ) : syncing ? (
-    <p className="text-xs text-zinc-500">Syncing…</p>
+    <p className="text-xs text-zinc-500 dark:text-zinc-400">Syncing…</p>
   ) : lastSyncedAt != null ? (
     <p
-      className={cn("text-xs", syncStale ? "text-amber-700" : "text-zinc-500")}
+      className={cn(
+        "text-xs",
+        syncStale
+          ? "text-amber-700 dark:text-amber-400"
+          : "text-zinc-500 dark:text-zinc-400"
+      )}
       title={formatSyncTimestamp(lastSyncedAt)}
       suppressHydrationWarning
     >
@@ -78,7 +84,7 @@ export function DashboardToolbar({
       {!compact && syncStale && now != null ? " · data may be stale" : null}
     </p>
   ) : (
-    <p className="text-xs text-zinc-500">Not synced yet</p>
+    <p className="text-xs text-zinc-500 dark:text-zinc-400">Not synced yet</p>
   );
 
   return (
@@ -104,6 +110,7 @@ export function DashboardToolbar({
           {compact ? null : syncing ? "Syncing…" : "Refresh"}
         </Button>
         <PrivacyModeToggle />
+        <ThemeModeToggle />
       </div>
     </div>
   );
