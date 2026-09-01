@@ -47,6 +47,7 @@ export const settingsSchema = z.object({
   timeframe: timeframeSchema.optional(),
   trendTimeframe: timeframeSchema.optional(),
   spendingTimeframe: timeframeSchema.optional(),
+  hiddenOverviewModules: z.array(z.string()).default([]),
 });
 
 export type Settings = z.infer<typeof settingsSchema>;
@@ -66,4 +67,5 @@ export const defaultSettings: Settings = {
   selectedPresetId: "all-accounts",
   trendTimeframe: "12m",
   spendingTimeframe: "this-month",
+  hiddenOverviewModules: [],
 };

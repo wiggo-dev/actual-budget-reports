@@ -15,7 +15,12 @@ import {
   useOverviewStats,
 } from "@/components/report-charts";
 import { ReportExportButton } from "@/components/report-export-button";
+import {
+  OverviewCustomizeDialog,
+  useOverviewModuleVisible,
+} from "@/components/overview-customize-dialog";
 import { useReportsContext } from "@/components/reports-provider";
+import { UpcomingSchedulesPanel } from "@/components/upcoming-schedules-panel";
 import { formatMoney } from "@/lib/format";
 import type { DashboardView } from "@/lib/dashboard-views";
 import { cn } from "@/lib/utils";
@@ -96,6 +101,13 @@ export function DashboardOverview() {
     stats.periodIncome > 0
       ? stats.periodExpenses / stats.periodIncome
       : null;
+  const showNetWorth = useOverviewModuleVisible("net-worth");
+  const showSavingsRate = useOverviewModuleVisible("savings-rate");
+  const showSpendingPeriod = useOverviewModuleVisible("spending-period");
+  const showSpendingMix = useOverviewModuleVisible("spending-mix");
+  const showCashFlow = useOverviewModuleVisible("cash-flow");
+  const showUpcoming = useOverviewModuleVisible("upcoming");
+  const showAccounts = useOverviewModuleVisible("accounts");
 
   if (stats.loading) {
     return <p className="text-sm text-zinc-500">Loading overview…</p>;
@@ -120,146 +132,169 @@ export function DashboardOverview() {
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-6">
-      <div className="relative overflow-hidden rounded-[2rem] bg-linear-to-br from-emerald-700 via-teal-700 to-stone-900 p-8 text-white md:col-span-4 md:row-span-2">
-        <p className="text-sm text-white/70">Net worth</p>
-        <p
-          className="mt-2 text-5xl font-semibold tracking-tight md:text-6xl"
-          data-privacy-value
-        >
-          {stats.latestNetWorth != null ? money(stats.latestNetWorth) : "—"}
-        </p>
-        {stats.netWorthDelta != null ? (
-          <p
-            className="mt-3 inline-flex rounded-full bg-white/15 px-3 py-1 text-sm"
-            data-privacy-value
-          >
-            {pct(stats.netWorthDelta)} over{" "}
-            {stats.trendTimeframeLabel.toLowerCase()}
-          </p>
-        ) : null}
-        <div className="mt-8 opacity-90">
-          <NetWorthChart compact />
-        </div>
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <OverviewCustomizeDialog />
       </div>
-
-      <div className="rounded-[2rem] bg-white p-6 shadow-sm md:col-span-2">
-        <p className="text-sm text-zinc-500">
-          Savings rate · {stats.trendTimeframeLabel.toLowerCase()}
-        </p>
-        <p
-          className="mt-2 text-3xl font-semibold text-zinc-900"
-          data-privacy-value
-        >
-          {stats.periodSavingsRate != null
-            ? formatRate(stats.periodSavingsRate)
-            : "—"}
-        </p>
-        <p className="text-sm text-zinc-500">
-          {stats.periodSavingsRate == null
-            ? "Need income in this period"
-            : "of income kept"}
-        </p>
-        <SavingsRateSpark series={stats.savingsRateSeries} />
-      </div>
-
-      <div className="rounded-[2rem] bg-white p-6 shadow-sm md:col-span-2">
-        <p className="text-sm text-zinc-500">{stats.spendingTimeframeLabel}</p>
-        <p
-          className="mt-2 text-3xl font-semibold text-zinc-900"
-          data-privacy-value
-        >
-          {stats.periodExpenses != null ? money(stats.periodExpenses) : "—"}
-        </p>
-        <p className="text-sm text-zinc-500" data-privacy-value>
-          spent of{" "}
-          {stats.periodIncome != null ? money(stats.periodIncome) : "—"}
-        </p>
-        {spentRatio != null ? (
-          <>
-            <div className="mt-6 h-2 overflow-hidden rounded-full bg-zinc-100">
-              <div
-                className="h-full rounded-full bg-amber-400"
-                style={{ width: `${Math.min(spentRatio * 100, 100)}%` }}
-              />
+      <div className="grid gap-4 md:grid-cols-6">
+        {showNetWorth ? (
+          <div className="relative overflow-hidden rounded-[2rem] bg-linear-to-br from-emerald-700 via-teal-700 to-stone-900 p-8 text-white md:col-span-4 md:row-span-2">
+            <p className="text-sm text-white/70">Net worth</p>
+            <p
+              className="mt-2 text-5xl font-semibold tracking-tight md:text-6xl"
+              data-privacy-value
+            >
+              {stats.latestNetWorth != null ? money(stats.latestNetWorth) : "—"}
+            </p>
+            {stats.netWorthDelta != null ? (
+              <p
+                className="mt-3 inline-flex rounded-full bg-white/15 px-3 py-1 text-sm"
+                data-privacy-value
+              >
+                {pct(stats.netWorthDelta)} over{" "}
+                {stats.trendTimeframeLabel.toLowerCase()}
+              </p>
+            ) : null}
+            <div className="mt-8 opacity-90">
+              <NetWorthChart compact />
             </div>
-            <p className="mt-2 text-xs text-zinc-400" data-privacy-value>
-              {Math.round(spentRatio * 100)}% of income used
-            </p>
-          </>
-        ) : null}
-      </div>
-
-      <div className="rounded-[2rem] bg-white p-6 shadow-sm md:col-span-3">
-        <p className="mb-4 text-sm text-zinc-500">
-          Spending mix · {stats.spendingTimeframeLabel.toLowerCase()}
-        </p>
-        <SpendingDonutChart compact showLegend />
-      </div>
-
-      <div className="rounded-[2rem] bg-lime-200 p-6 md:col-span-3">
-        <p className="mb-4 text-sm text-emerald-900/70">
-          Cash flow · {stats.trendTimeframeLabel.toLowerCase()}
-        </p>
-        <CashFlowChart compact />
-      </div>
-
-      <div className="rounded-[2rem] bg-white p-6 shadow-sm md:col-span-6">
-        <button
-          type="button"
-          className={cn(
-            "flex w-full items-center justify-between gap-4 rounded-2xl border px-4 py-3 text-left transition-colors",
-            "hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2 focus-visible:outline-none",
-            accountsExpanded
-              ? "border-zinc-200 bg-zinc-50"
-              : "border-dashed border-zinc-300 bg-zinc-50/80"
-          )}
-          aria-expanded={accountsExpanded}
-          aria-controls="overview-accounts-panel"
-          onClick={() => {
-            setAccountsExpanded((open) => {
-              if (!open) {
-                setAccountsMounted(true);
-              }
-              return !open;
-            });
-          }}
-        >
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-zinc-900">Accounts</p>
-            <p className="mt-0.5 text-sm text-zinc-500">
-              {includedAccountCount}{" "}
-              {includedAccountCount === 1 ? "account" : "accounts"} included
-              {!accountsExpanded ? " · balances hidden" : null}
-            </p>
           </div>
-          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 shadow-sm ring-1 ring-zinc-200">
-            {accountsExpanded ? "Hide balances" : "Show balances"}
-            <ChevronDown
-              className={cn(
-                "size-4 text-zinc-500 transition-transform duration-300 motion-reduce:transition-none",
-                accountsExpanded && "rotate-180"
-              )}
-              aria-hidden
-            />
-          </span>
-        </button>
-        <div
-          id="overview-accounts-panel"
-          className={cn(
-            "grid overflow-anchor-none transition-[grid-template-rows] duration-300 ease-in-out motion-reduce:transition-none",
-            accountsExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-          )}
-          aria-hidden={!accountsExpanded}
-        >
-          <div className="min-h-0 overflow-hidden">
-            {accountsMounted ? (
-              <div className="pt-4">
-                <AccountBalancesChart />
-              </div>
+        ) : null}
+
+        {showSavingsRate ? (
+          <div className="rounded-[2rem] bg-white p-6 shadow-sm md:col-span-2">
+            <p className="text-sm text-zinc-500">
+              Savings rate · {stats.trendTimeframeLabel.toLowerCase()}
+            </p>
+            <p
+              className="mt-2 text-3xl font-semibold text-zinc-900"
+              data-privacy-value
+            >
+              {stats.periodSavingsRate != null
+                ? formatRate(stats.periodSavingsRate)
+                : "—"}
+            </p>
+            <p className="text-sm text-zinc-500">
+              {stats.periodSavingsRate == null
+                ? "Need income in this period"
+                : "of income kept"}
+            </p>
+            <SavingsRateSpark series={stats.savingsRateSeries} />
+          </div>
+        ) : null}
+
+        {showSpendingPeriod ? (
+          <div className="rounded-[2rem] bg-white p-6 shadow-sm md:col-span-2">
+            <p className="text-sm text-zinc-500">
+              {stats.spendingTimeframeLabel}
+            </p>
+            <p
+              className="mt-2 text-3xl font-semibold text-zinc-900"
+              data-privacy-value
+            >
+              {stats.periodExpenses != null ? money(stats.periodExpenses) : "—"}
+            </p>
+            <p className="text-sm text-zinc-500" data-privacy-value>
+              spent of{" "}
+              {stats.periodIncome != null ? money(stats.periodIncome) : "—"}
+            </p>
+            {spentRatio != null ? (
+              <>
+                <div className="mt-6 h-2 overflow-hidden rounded-full bg-zinc-100">
+                  <div
+                    className="h-full rounded-full bg-amber-400"
+                    style={{ width: `${Math.min(spentRatio * 100, 100)}%` }}
+                  />
+                </div>
+                <p className="mt-2 text-xs text-zinc-400" data-privacy-value>
+                  {Math.round(spentRatio * 100)}% of income used
+                </p>
+              </>
             ) : null}
           </div>
-        </div>
+        ) : null}
+
+        {showSpendingMix ? (
+          <div className="rounded-[2rem] bg-white p-6 shadow-sm md:col-span-3">
+            <p className="mb-4 text-sm text-zinc-500">
+              Spending mix · {stats.spendingTimeframeLabel.toLowerCase()}
+            </p>
+            <SpendingDonutChart compact showLegend />
+          </div>
+        ) : null}
+
+        {showCashFlow ? (
+          <div className="rounded-[2rem] bg-lime-200 p-6 md:col-span-3">
+            <p className="mb-4 text-sm text-emerald-900/70">
+              Cash flow · {stats.trendTimeframeLabel.toLowerCase()}
+            </p>
+            <CashFlowChart compact />
+          </div>
+        ) : null}
+
+        {showUpcoming ? (
+          <UpcomingSchedulesPanel className="md:col-span-3" />
+        ) : null}
+
+        {showAccounts ? (
+          <div className="rounded-[2rem] bg-white p-6 shadow-sm md:col-span-6">
+            <button
+              type="button"
+              className={cn(
+                "flex w-full items-center justify-between gap-4 rounded-2xl border px-4 py-3 text-left transition-colors",
+                "hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2 focus-visible:outline-none",
+                accountsExpanded
+                  ? "border-zinc-200 bg-zinc-50"
+                  : "border-dashed border-zinc-300 bg-zinc-50/80"
+              )}
+              aria-expanded={accountsExpanded}
+              aria-controls="overview-accounts-panel"
+              onClick={() => {
+                setAccountsExpanded((open) => {
+                  if (!open) {
+                    setAccountsMounted(true);
+                  }
+                  return !open;
+                });
+              }}
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-zinc-900">Accounts</p>
+                <p className="mt-0.5 text-sm text-zinc-500">
+                  {includedAccountCount}{" "}
+                  {includedAccountCount === 1 ? "account" : "accounts"} included
+                  {!accountsExpanded ? " · balances hidden" : null}
+                </p>
+              </div>
+              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 shadow-sm ring-1 ring-zinc-200">
+                {accountsExpanded ? "Hide balances" : "Show balances"}
+                <ChevronDown
+                  className={cn(
+                    "size-4 text-zinc-500 transition-transform duration-300 motion-reduce:transition-none",
+                    accountsExpanded && "rotate-180"
+                  )}
+                  aria-hidden
+                />
+              </span>
+            </button>
+            <div
+              id="overview-accounts-panel"
+              className={cn(
+                "grid overflow-anchor-none transition-[grid-template-rows] duration-300 ease-in-out motion-reduce:transition-none",
+                accountsExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+              )}
+              aria-hidden={!accountsExpanded}
+            >
+              <div className="min-h-0 overflow-hidden">
+                {accountsMounted ? (
+                  <div className="pt-4">
+                    <AccountBalancesChart />
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );

@@ -20,6 +20,8 @@ import {
 import { scopeLabel } from "@/lib/reports/scope-label";
 import type { SpendingAggregation } from "@/lib/reports/spending-by-category";
 import { priorYearScope } from "@/lib/reports/yoy";
+import type { OverviewModuleId } from "@/lib/overview-modules";
+import { overviewModules } from "@/lib/overview-modules";
 import { timeframeMonths, type Timeframe } from "@/lib/reports/timeframe";
 import { createId } from "@/lib/utils";
 import { useSearchParams } from "next/navigation";
@@ -62,12 +64,17 @@ type ReportsContextValue = {
   spendingCustomRange: CustomDateRange | null;
   spendingLevel: SpendingAggregation;
   yoyCompare: boolean;
+  hiddenOverviewModules: string[];
   setTrendTimeframe: (timeframe: Timeframe) => void;
   setSpendingTimeframe: (timeframe: Timeframe) => void;
   setTrendCustomRange: (range: CustomDateRange) => void;
   setSpendingCustomRange: (range: CustomDateRange) => void;
   setSpendingLevel: (level: SpendingAggregation) => void;
   setYoYCompare: (enabled: boolean) => void;
+  setOverviewModuleVisible: (
+    moduleId: OverviewModuleId,
+    visible: boolean
+  ) => void;
   trendScopeLabel: string;
   spendingScopeLabel: string;
   currency: string;
@@ -242,6 +249,9 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
   const [yoyCompare, setYoYCompareState] = useState(
     () => initialUrl.yoyCompare ?? false
   );
+  const [hiddenOverviewModules, setHiddenOverviewModulesState] = useState<
+    string[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [configured, setConfigured] = useState(true);
@@ -317,6 +327,7 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
       setCategoryGroups(categoryRows.groups);
       setCategories(categoryRows.categories);
       setSettings(savedSettings);
+      setHiddenOverviewModulesState(savedSettings.hiddenOverviewModules ?? []);
       setCurrency(preferenceRows.currency || "GBP");
 
       const url = readDashboardUrlState(searchParams);
@@ -721,6 +732,36 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
     setYoYCompareState(enabled);
   }, []);
 
+  const setOverviewModuleVisible = useCallback(
+    (moduleId: OverviewModuleId, visible: boolean) => {
+      if (!settings) {
+        return;
+      }
+
+      setHiddenOverviewModulesState((current) => {
+        const next = visible
+          ? current.filter((id) => id !== moduleId)
+          : [...current, moduleId];
+        const allHidden = overviewModules.every((module) =>
+          next.includes(module.id)
+        );
+
+        if (allHidden) {
+          return current;
+        }
+
+        const updated = {
+          ...settings,
+          hiddenOverviewModules: next,
+        };
+        setSettings(updated);
+        void persistSettings(updated);
+        return next;
+      });
+    },
+    [persistSettings, settings]
+  );
+
   const trendScopeLabel = scopeLabel(trendTimeframe, trendCustomRange);
   const spendingScopeLabel = scopeLabel(spendingTimeframe, spendingCustomRange);
 
@@ -839,12 +880,14 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
       spendingCustomRange,
       spendingLevel,
       yoyCompare,
+      hiddenOverviewModules,
       setTrendTimeframe,
       setSpendingTimeframe,
       setTrendCustomRange,
       setSpendingCustomRange,
       setSpendingLevel,
       setYoYCompare,
+      setOverviewModuleVisible,
       trendScopeLabel,
       spendingScopeLabel,
       currency,
@@ -884,12 +927,14 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
       spendingCustomRange,
       spendingLevel,
       yoyCompare,
+      hiddenOverviewModules,
       setTrendTimeframe,
       setSpendingTimeframe,
       setTrendCustomRange,
       setSpendingCustomRange,
       setSpendingLevel,
       setYoYCompare,
+      setOverviewModuleVisible,
       trendScopeLabel,
       spendingScopeLabel,
       currency,
