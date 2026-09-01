@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.3
+
+### Patch Changes
+
+- 249192a: Fix Docker health check by resolving the Actual API version from process.cwd() instead of import.meta.url in the standalone bundle.
+
 ## 1.5.2
 
 ### Patch Changes
