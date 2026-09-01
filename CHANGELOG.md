@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0
+
+### Major Changes
+
+- 8bb14e7: Complete v1 reporting: transfer-aware cash flow and income, budget vs actual filters, payee spending with transaction drill-down, overview savings rate, and Vitest coverage in CI.
+
 ## 0.2.6
 
 ### Patch Changes
