@@ -652,6 +652,27 @@ function SpendingDonutLegendTable({
   );
 }
 
+function ChartColorLegend({
+  items,
+}: {
+  items: { label: string; color: string }[];
+}) {
+  return (
+    <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 text-sm">
+      {items.map((item) => (
+        <div key={item.label} className="flex items-center gap-1.5">
+          <span
+            className="size-2.5 shrink-0 rounded-full"
+            style={{ background: item.color }}
+            aria-hidden
+          />
+          <span className="dashboard-text">{item.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function SpendingTrendLegend({
   categories,
   includeTotal = false,
@@ -1423,25 +1444,39 @@ export function CashFlowChart({ compact = false }: { compact?: boolean }) {
 
   if (compact) {
     return (
-      <ChartContainer config={cashFlowConfig} className="h-36 w-full">
-        <BarChart data={chartData} accessibilityLayer>
-          <CartesianGrid vertical={false} stroke="transparent" />
-          <XAxis
-            dataKey="month"
-            tickLine={false}
-            axisLine={false}
-            tickFormatter={(value) => String(value).slice(5)}
-          />
-          <ChartTooltip content={<MoneyTooltip money={money} />} />
-          <Bar dataKey="inflow" name="Inflow" fill="#065f46" radius={8} />
-          <Bar
-            dataKey="outflow"
-            name="Outflow"
-            fill="rgba(6,95,70,0.35)"
-            radius={8}
-          />
-        </BarChart>
-      </ChartContainer>
+      <div className="space-y-2">
+        <ChartContainer config={cashFlowConfig} className="h-36 w-full">
+          <BarChart data={chartData} accessibilityLayer>
+            <CartesianGrid vertical={false} stroke="transparent" />
+            <XAxis
+              dataKey="month"
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(value) => String(value).slice(5)}
+            />
+            <ChartTooltip content={<MoneyTooltip money={money} />} />
+            <Bar dataKey="inflow" name="Inflow" fill="#065f46" radius={8} />
+            <Bar
+              dataKey="outflow"
+              name="Outflow"
+              fill="rgba(6,95,70,0.35)"
+              radius={8}
+            />
+          </BarChart>
+        </ChartContainer>
+        <ChartColorLegend
+          items={[
+            {
+              label: cashFlowConfig.inflow.label,
+              color: cashFlowConfig.inflow.color,
+            },
+            {
+              label: cashFlowConfig.outflow.label,
+              color: cashFlowConfig.outflow.color,
+            },
+          ]}
+        />
+      </div>
     );
   }
 
