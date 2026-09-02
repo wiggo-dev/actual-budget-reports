@@ -66,6 +66,33 @@ describe("aggregateCategorySpend", () => {
     ["coffee", "grp-food"],
   ]);
 
+  it("rolls up split transactions by subcategory", () => {
+    const transactions: SpendTransaction[] = [
+      fromPartial({
+        id: "parent",
+        amount: -10000,
+        category: null,
+        subtransactions: [
+          fromPartial({
+            id: "child-1",
+            amount: -6000,
+            category: "food",
+          }),
+          fromPartial({
+            id: "child-2",
+            amount: -4000,
+            category: "fun",
+          }),
+        ],
+      }),
+    ];
+
+    expect(aggregateCategorySpend(transactions, names)).toEqual([
+      { category: "Groceries", amount: 60 },
+      { category: "Entertainment", amount: 40 },
+    ]);
+  });
+
   it("sums spending by category and ignores inflows", () => {
     const transactions: SpendTransaction[] = [
       fromPartial({ amount: -4000, category: "food" }),

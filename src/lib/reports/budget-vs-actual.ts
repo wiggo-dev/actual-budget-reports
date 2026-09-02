@@ -10,6 +10,7 @@ import {
   monthStartsForRange,
   type ReportRange,
 } from "@/lib/reports/report-range";
+import { expandSplitTransactions } from "@/lib/reports/transaction-splits";
 
 export type BudgetActualRow = {
   category: string;
@@ -211,7 +212,7 @@ export async function getBudgetVsActual(
 
     for (const account of accounts) {
       const accountTxs = await actual.getTransactions(account.id, start, end);
-      for (const tx of accountTxs) {
+      for (const tx of expandSplitTransactions(accountTxs)) {
         const categoryId =
           typeof tx.category === "string" ? tx.category : undefined;
         transactions.push({
