@@ -552,13 +552,150 @@ function buildDonutSlices(data: SpendingRow[], limit: number) {
   }));
 }
 
+type DonutSlice = ReturnType<typeof buildDonutSlices>[number];
+
+function SpendingDonutLegendTable({
+  slices,
+  hiddenCategories,
+  money,
+  onCategoryClick,
+  onToggleCategory,
+}: {
+  slices: DonutSlice[];
+  hiddenCategories: Set<string>;
+  money: (amount: number, options?: { hideFraction?: boolean }) => string;
+  onCategoryClick?: (category: string) => void;
+  onToggleCategory: (category: string) => void;
+}) {
+  return (
+    <div className="max-h-56 overflow-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
+      <table className="w-full text-left text-sm">
+        <thead className="sticky top-0 bg-white text-xs tracking-wide dashboard-muted uppercase dark:bg-zinc-950">
+          <tr>
+            <th className="py-2 pl-3 font-medium">Category</th>
+            <th className="py-2 pr-3 text-right font-medium">Spent</th>
+          </tr>
+        </thead>
+        <tbody>
+          {slices.map((item) => {
+            const hidden = hiddenCategories.has(item.category);
+            const clickable =
+              onCategoryClick != null && item.category !== "Other";
+
+            return (
+              <tr
+                key={item.category}
+                className={cn(
+                  "border-t border-zinc-100 dark:border-zinc-800",
+                  hidden && "opacity-45"
+                )}
+              >
+                <td className="py-2 pl-3">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <button
+                      type="button"
+                      aria-pressed={!hidden}
+                      aria-label={
+                        hidden
+                          ? `Show ${item.category} on chart`
+                          : `Hide ${item.category} from chart`
+                      }
+                      title={
+                        hidden
+                          ? `Show ${item.category}`
+                          : `Hide ${item.category}`
+                      }
+                      className={cn(
+                        "size-2.5 shrink-0 rounded-full transition-opacity outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2",
+                        hidden && "ring-1 ring-zinc-300 ring-offset-1"
+                      )}
+                      style={{ background: item.fill }}
+                      onClick={() => onToggleCategory(item.category)}
+                    />
+                    {clickable ? (
+                      <button
+                        type="button"
+                        className={cn(
+                          "truncate text-left dashboard-text hover:underline",
+                          hidden && "line-through"
+                        )}
+                        onClick={() => onCategoryClick(item.category)}
+                      >
+                        {item.category}
+                      </button>
+                    ) : (
+                      <span
+                        className={cn(
+                          "truncate dashboard-text",
+                          hidden && "line-through"
+                        )}
+                      >
+                        {item.category}
+                      </span>
+                    )}
+                  </div>
+                </td>
+                <td
+                  className={cn(
+                    "py-2 pr-3 text-right font-mono tabular-nums dashboard-text",
+                    hidden && "line-through"
+                  )}
+                >
+                  {money(item.amount)}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function SpendingTrendLegend({
+  categories,
+  includeTotal = false,
+}: {
+  categories: string[];
+  includeTotal?: boolean;
+}) {
+  const items = includeTotal ? [...categories, "Total"] : categories;
+
+  return (
+    <div className="max-h-24 overflow-auto rounded-xl border border-zinc-200 px-3 py-2 dark:border-zinc-800">
+      <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
+        {items.map((category, index) => {
+          const color =
+            category === "Total"
+              ? "#134e4a"
+              : donutPalette[index % donutPalette.length];
+
+          return (
+            <div
+              key={category}
+              className="flex min-w-0 max-w-full items-center gap-1.5"
+            >
+              <span
+                className="size-2.5 shrink-0 rounded-full"
+                style={{ background: color }}
+                aria-hidden
+              />
+              <span className="truncate dashboard-text">{category}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function SpendingDonutView({
   data,
   money,
   className,
   compact = false,
   limit = 8,
-  showLegend = false,
+  legendLayout = "none",
   onCategoryClick,
 }: {
   data: SpendingRow[];
@@ -566,7 +703,7 @@ function SpendingDonutView({
   className?: string;
   compact?: boolean;
   limit?: number;
-  showLegend?: boolean;
+  legendLayout?: "none" | "below";
   onCategoryClick?: (category: string) => void;
 }) {
   const [hiddenCategories, setHiddenCategories] = useState<Set<string>>(
@@ -607,9 +744,7 @@ function SpendingDonutView({
   return (
     <div
       className={cn(
-        showLegend
-          ? "flex flex-col items-center gap-4 sm:flex-row sm:items-center"
-          : undefined,
+        legendLayout === "below" ? "flex flex-col gap-4" : undefined,
         className
       )}
     >
@@ -682,61 +817,14 @@ function SpendingDonutView({
         </PieChart>
       </ChartContainer>
 
-      {showLegend ? (
-        <ul className="grid w-full gap-2 text-sm sm:flex-1">
-          {allSlices.map((item) => {
-            const hidden = hiddenCategories.has(item.category);
-            return (
-              <li
-                key={item.category}
-                className={cn(
-                  "flex min-w-0 items-center gap-2",
-                  hidden && "opacity-45"
-                )}
-              >
-                <button
-                  type="button"
-                  aria-pressed={!hidden}
-                  aria-label={
-                    hidden
-                      ? `Show ${item.category} on chart`
-                      : `Hide ${item.category} from chart`
-                  }
-                  title={
-                    hidden ? `Show ${item.category}` : `Hide ${item.category}`
-                  }
-                  className={cn(
-                    "size-2.5 shrink-0 rounded-full transition-opacity outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2",
-                    hidden && "ring-1 ring-zinc-300 ring-offset-1"
-                  )}
-                  style={{ background: item.fill }}
-                  onClick={() => toggleCategory(item.category)}
-                />
-                <button
-                  type="button"
-                  className={cn(
-                    "truncate text-left dashboard-text",
-                    hidden && "line-through",
-                    onCategoryClick &&
-                      item.category !== "Other" &&
-                      "hover:underline"
-                  )}
-                  disabled={!onCategoryClick || item.category === "Other"}
-                  onClick={() => {
-                    if (onCategoryClick && item.category !== "Other") {
-                      onCategoryClick(item.category);
-                    }
-                  }}
-                >
-                  {item.category}
-                </button>
-                <span className="shrink-0 font-mono tabular-nums dashboard-text">
-                  {money(item.amount)}
-                </span>
-              </li>
-            );
-          })}
-        </ul>
+      {legendLayout === "below" ? (
+        <SpendingDonutLegendTable
+          slices={allSlices}
+          hiddenCategories={hiddenCategories}
+          money={money}
+          onCategoryClick={onCategoryClick}
+          onToggleCategory={toggleCategory}
+        />
       ) : null}
     </div>
   );
@@ -746,12 +834,12 @@ export function SpendingDonutChart({
   className,
   compact = false,
   limit = 8,
-  showLegend = false,
+  legendLayout = "none",
 }: {
   className?: string;
   compact?: boolean;
   limit?: number;
-  showLegend?: boolean;
+  legendLayout?: "none" | "below";
 }) {
   const money = useMoney();
   const { data, loading, error } = useReportData<SpendingRow[]>(
@@ -778,7 +866,7 @@ export function SpendingDonutChart({
       className={className}
       compact={compact}
       limit={limit}
-      showLegend={showLegend}
+      legendLayout={legendLayout}
     />
   );
 }
@@ -921,7 +1009,7 @@ export function SpendingByCategoryChart() {
           <SpendingDonutView
             data={donut.data}
             money={money}
-            showLegend
+            legendLayout="below"
             onCategoryClick={
               drilldown || spendingLevel === "group"
                 ? handleSliceClick
@@ -982,70 +1070,72 @@ export function SpendingByCategoryChart() {
               </LineChart>
             </ChartContainer>
           ) : (
-            <ChartContainer
-              config={trendConfig}
-              className="aspect-auto h-[320px] w-full"
-            >
-              <ComposedChart
-                data={points}
-                accessibilityLayer
-                margin={{ top: 8, right: 8, left: 4, bottom: 0 }}
-                onClick={(state) => {
-                  const month = state?.activeLabel;
-                  if (typeof month === "string" && drilldown) {
-                    drilldown.openDrilldown({
-                      title: `Spending · ${month}`,
-                      month,
-                      scope: "trend",
-                    });
-                  }
-                }}
-                style={{ cursor: drilldown ? "pointer" : undefined }}
+            <div className="space-y-3">
+              <ChartContainer
+                config={trendConfig}
+                className="aspect-auto h-[320px] w-full"
               >
-                <CartesianGrid vertical={false} />
-                <XAxis
-                  dataKey="month"
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(value) => String(value).slice(5)}
-                />
-                <YAxis
-                  width={72}
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={8}
-                  tickFormatter={(value) =>
-                    money(Number(value), { hideFraction: true })
-                  }
-                />
-                <ChartTooltip content={<MoneyTooltip money={money} />} />
-                <ChartLegend content={<ChartLegendContent />} />
-                {categories.map((category, index) => (
-                  <Bar
-                    key={category}
-                    dataKey={category}
-                    name={category}
-                    stackId="spend"
-                    fill={donutPalette[index % donutPalette.length]}
-                    maxBarSize={48}
-                    radius={
-                      index === categories.length - 1
-                        ? [6, 6, 0, 0]
-                        : [0, 0, 0, 0]
+                <ComposedChart
+                  data={points}
+                  accessibilityLayer
+                  margin={{ top: 8, right: 8, left: 4, bottom: 0 }}
+                  onClick={(state) => {
+                    const month = state?.activeLabel;
+                    if (typeof month === "string" && drilldown) {
+                      drilldown.openDrilldown({
+                        title: `Spending · ${month}`,
+                        month,
+                        scope: "trend",
+                      });
+                    }
+                  }}
+                  style={{ cursor: drilldown ? "pointer" : undefined }}
+                >
+                  <CartesianGrid vertical={false} />
+                  <XAxis
+                    dataKey="month"
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(value) => String(value).slice(5)}
+                  />
+                  <YAxis
+                    width={72}
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                    tickFormatter={(value) =>
+                      money(Number(value), { hideFraction: true })
                     }
                   />
-                ))}
-                <Line
-                  type="monotone"
-                  dataKey="total"
-                  name="Total"
-                  stroke="#134e4a"
-                  strokeWidth={2.5}
-                  dot={false}
-                  activeDot={{ r: 4 }}
-                />
-              </ComposedChart>
-            </ChartContainer>
+                  <ChartTooltip content={<MoneyTooltip money={money} />} />
+                  {categories.map((category, index) => (
+                    <Bar
+                      key={category}
+                      dataKey={category}
+                      name={category}
+                      stackId="spend"
+                      fill={donutPalette[index % donutPalette.length]}
+                      maxBarSize={48}
+                      radius={
+                        index === categories.length - 1
+                          ? [6, 6, 0, 0]
+                          : [0, 0, 0, 0]
+                      }
+                    />
+                  ))}
+                  <Line
+                    type="monotone"
+                    dataKey="total"
+                    name="Total"
+                    stroke="#134e4a"
+                    strokeWidth={2.5}
+                    dot={false}
+                    activeDot={{ r: 4 }}
+                  />
+                </ComposedChart>
+              </ChartContainer>
+              <SpendingTrendLegend categories={categories} includeTotal />
+            </div>
           )}
         </div>
       ) : (

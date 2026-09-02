@@ -219,7 +219,7 @@ export function DashboardOverview() {
             <p className="mb-4 text-sm dashboard-muted">
               Spending mix · {stats.spendingTimeframeLabel.toLowerCase()}
             </p>
-            <SpendingDonutChart compact showLegend />
+            <SpendingDonutChart compact />
           </div>
         ) : null}
 
