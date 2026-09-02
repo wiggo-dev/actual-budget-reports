@@ -214,21 +214,37 @@ export function DashboardOverview() {
           </div>
         ) : null}
 
-        {showSpendingMix ? (
-          <div className="dashboard-card p-6 md:col-span-3">
-            <p className="mb-4 text-sm dashboard-muted">
-              Spending mix · {stats.spendingTimeframeLabel.toLowerCase()}
-            </p>
-            <SpendingDonutChart compact />
-          </div>
-        ) : null}
+        {showSpendingMix || showCashFlow ? (
+          <div
+            className={cn(
+              "grid gap-4 md:col-span-6",
+              showSpendingMix && showCashFlow
+                ? "md:grid-cols-4"
+                : "md:grid-cols-1"
+            )}
+          >
+            {showSpendingMix ? (
+              <div className="dashboard-card p-6">
+                <p className="mb-4 text-sm dashboard-muted">
+                  Spending mix · {stats.spendingTimeframeLabel.toLowerCase()}
+                </p>
+                <SpendingDonutChart compact enableDrilldown />
+              </div>
+            ) : null}
 
-        {showCashFlow ? (
-          <div className="dashboard-cashflow rounded-[2rem] p-6 md:col-span-3">
-            <p className="mb-4 text-sm text-emerald-900/70 dark:text-emerald-100/70">
-              Cash flow · {stats.trendTimeframeLabel.toLowerCase()}
-            </p>
-            <CashFlowChart compact />
+            {showCashFlow ? (
+              <div
+                className={cn(
+                  "dashboard-cashflow rounded-[2rem] p-6",
+                  showSpendingMix && showCashFlow && "md:col-span-3"
+                )}
+              >
+                <p className="mb-4 text-sm text-emerald-900/70 dark:text-emerald-100/70">
+                  Cash flow · {stats.trendTimeframeLabel.toLowerCase()}
+                </p>
+                <CashFlowChart compact />
+              </div>
+            ) : null}
           </div>
         ) : null}
 

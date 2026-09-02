@@ -835,17 +835,38 @@ export function SpendingDonutChart({
   compact = false,
   limit = 8,
   legendLayout = "none",
+  enableDrilldown = false,
 }: {
   className?: string;
   compact?: boolean;
   limit?: number;
   legendLayout?: "none" | "below";
+  enableDrilldown?: boolean;
 }) {
   const money = useMoney();
+  const drilldown = useOptionalTransactionDrilldown();
+  const { spendingLevel } = useReportsContext();
   const { data, loading, error } = useReportData<SpendingRow[]>(
     "spending-by-category",
     "spending"
   );
+
+  function handleSliceClick(label: string) {
+    if (label === "Other") {
+      return;
+    }
+
+    drilldown?.openDrilldown({
+      title: `Spending · ${label}`,
+      category: label,
+      scope: "spending",
+    });
+  }
+
+  const onCategoryClick =
+    enableDrilldown && spendingLevel === "category"
+      ? handleSliceClick
+      : undefined;
 
   if (loading) {
     return (
@@ -867,6 +888,7 @@ export function SpendingDonutChart({
       compact={compact}
       limit={limit}
       legendLayout={legendLayout}
+      onCategoryClick={onCategoryClick}
     />
   );
 }
