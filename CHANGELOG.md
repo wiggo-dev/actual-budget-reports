@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.5
+
+### Patch Changes
+
+- Roll up split transactions by subcategory in spending reports, and compact overview/spending chart legends (25/75 spending mix vs cash flow, donut drilldown, cash flow legend).
+
 ## 1.5.4
 
 ### Patch Changes
