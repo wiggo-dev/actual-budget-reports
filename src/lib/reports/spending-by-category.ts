@@ -11,6 +11,10 @@ import {
   monthStartsForRange,
   type ReportRange,
 } from "@/lib/reports/report-range";
+import {
+  expandSplitTransactions,
+  type TransactionWithSplits,
+} from "@/lib/reports/transaction-splits";
 
 export type SpendingAggregation = "category" | "group";
 
@@ -19,10 +23,7 @@ export type CategorySpendRow = {
   amount: number;
 };
 
-export type SpendTransaction = {
-  amount: number;
-  category?: unknown;
-};
+export type SpendTransaction = TransactionWithSplits;
 
 export type SpendingQueryOptions = {
   aggregation?: SpendingAggregation;
@@ -96,7 +97,7 @@ export function aggregateCategorySpend(
   const groupNames = options.groupNames ?? new Map();
   const totals = new Map<string, number>();
 
-  for (const tx of transactions) {
+  for (const tx of expandSplitTransactions(transactions)) {
     if (tx.amount >= 0) {
       continue;
     }
@@ -227,7 +228,7 @@ export async function getSpendingByCategoryTrend(
       const bucket = perMonth.get(key)!;
       const transactions = await actual.getTransactions(account.id, start, end);
 
-      for (const tx of transactions) {
+      for (const tx of expandSplitTransactions(transactions)) {
         if (tx.amount >= 0) {
           continue;
         }

@@ -10,6 +10,7 @@ import {
   dateBoundsForRange,
   type ReportRange,
 } from "@/lib/reports/report-range";
+import { expandSplitTransactions } from "@/lib/reports/transaction-splits";
 
 export type PayeeSpendTransaction = {
   id: string;
@@ -85,7 +86,7 @@ export async function getPayeeSpending(
 
   for (const account of accounts) {
     const accountTxs = await actual.getTransactions(account.id, start, end);
-    for (const tx of accountTxs) {
+    for (const tx of expandSplitTransactions(accountTxs)) {
       const payeeId = typeof tx.payee === "string" ? tx.payee : null;
       const categoryId =
         typeof tx.category === "string" ? tx.category : undefined;
@@ -163,7 +164,7 @@ export async function getFilteredTransactions(
 
   for (const account of accounts) {
     const accountTxs = await actual.getTransactions(account.id, start, end);
-    for (const tx of accountTxs) {
+    for (const tx of expandSplitTransactions(accountTxs)) {
       if (seen.has(tx.id)) {
         continue;
       }
