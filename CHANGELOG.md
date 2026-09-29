@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.6.0
+
+### Minor Changes
+
+- 5f58af2: Add optional shared-secret HTTP Basic / Bearer auth via APP_AUTH_PASSWORD for hosts without a reverse proxy.
+
 ## 1.5.5
 
 ### Patch Changes
