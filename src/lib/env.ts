@@ -16,6 +16,10 @@ const envSchema = z.object({
   ACTUAL_SERVER_PASSWORD: z.preprocess(emptyToUndefined, z.string().optional()),
   ACTUAL_SYNC_ID: z.preprocess(emptyToUndefined, z.string().optional()),
   ACTUAL_E2E_PASSWORD: z.preprocess(emptyToUndefined, z.string().optional()),
+  /** When set, HTTP Basic / Bearer auth is required for pages and API. */
+  APP_AUTH_PASSWORD: z.preprocess(emptyToUndefined, z.string().optional()),
+  /** Basic-auth username; defaults to "reports" when APP_AUTH_PASSWORD is set. */
+  APP_AUTH_USER: z.preprocess(emptyToUndefined, z.string().optional()),
   ACTUAL_DATA_DIR: z.string().default(".data/actual-cache"),
   SETTINGS_PATH: z.string().default(".data/settings.json"),
   SYNC_INTERVAL_MS: z.coerce.number().default(300_000),
