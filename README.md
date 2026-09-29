@@ -15,7 +15,7 @@ Self-hosted finance reporting for [Actual Budget](https://actualbudget.org). Cha
 - Account exclude-lists and named presets
 - Timeframe filter (3 / 6 / 12 / 24 months / all time)
 
-Homelab-friendly: no in-app login. Put a reverse proxy in front if you expose it beyond your LAN.
+Homelab-friendly by default: no login required on a trusted LAN. Prefer a reverse proxy (Authelia, oauth2-proxy, etc.) when you expose it further; optional shared-secret Basic auth is available when you cannot.
 
 ## Install (Docker / GHCR)
 
@@ -97,9 +97,28 @@ image: ghcr.io/wiggo-dev/actual-budget-reports:0.2.3
 
 Published images are multi-arch (`linux/amd64` and `linux/arm64`).
 
-### Reverse proxy
+### Reverse proxy (preferred)
 
-Expose only the reports app (port 3000) behind Traefik, Caddy, nginx, Authelia, etc. Do not expose Actual credentials to the browser — they stay in container env.
+Expose only the reports app (port 3000) behind Traefik, Caddy, nginx, Authelia, oauth2-proxy, etc. Actual server credentials stay in container env and are never sent to the browser.
+
+### Optional shared-secret auth
+
+If you cannot put a reverse proxy in front, set a password to require HTTP Basic auth on every page and API route:
+
+```bash
+APP_AUTH_PASSWORD=choose-a-long-secret
+# optional; defaults to "reports"
+APP_AUTH_USER=reports
+```
+
+Leave `APP_AUTH_PASSWORD` unset (or empty) to keep the open LAN behaviour.
+
+Scripts and health checks can use Basic or a Bearer token with the same password:
+
+```bash
+curl -sf -u reports:"$APP_AUTH_PASSWORD" http://localhost:3000/api/health
+curl -sf -H "Authorization: Bearer $APP_AUTH_PASSWORD" http://localhost:3000/api/health
+```
 
 ## Local development
 
@@ -181,18 +200,22 @@ Example Docker health check:
 curl -sf http://localhost:3000/api/health | jq .
 ```
 
+When `APP_AUTH_PASSWORD` is set, pass credentials (see [Optional shared-secret auth](#optional-shared-secret-auth)).
+
 ## Environment variables
 
-| Variable                 | Default (local)       | Description                         |
-| ------------------------ | --------------------- | ----------------------------------- |
-| `ACTUAL_SERVER_URL`      | —                     | Actual sync server URL              |
-| `ACTUAL_SERVER_PASSWORD` | —                     | Server login password               |
-| `ACTUAL_SYNC_ID`         | —                     | Budget sync ID                      |
-| `ACTUAL_E2E_PASSWORD`    | —                     | E2E decrypt password (optional)     |
-| `ACTUAL_DATA_DIR`        | `.data/actual-cache`  | Local budget cache                  |
-| `SETTINGS_PATH`          | `.data/settings.json` | Presets and account filters         |
-| `SYNC_INTERVAL_MS`       | `300000`              | Min ms between Actual syncs (5 min) |
-| `PORT`                   | `3000`                | HTTP port                           |
+| Variable                 | Default (local)       | Description                                                     |
+| ------------------------ | --------------------- | --------------------------------------------------------------- |
+| `ACTUAL_SERVER_URL`      | —                     | Actual sync server URL                                          |
+| `ACTUAL_SERVER_PASSWORD` | —                     | Server login password                                           |
+| `ACTUAL_SYNC_ID`         | —                     | Budget sync ID                                                  |
+| `ACTUAL_E2E_PASSWORD`    | —                     | E2E decrypt password (optional)                                 |
+| `APP_AUTH_PASSWORD`      | —                     | Optional shared secret; when set, requires Basic/Bearer auth    |
+| `APP_AUTH_USER`          | `reports`             | Basic-auth username (only used when `APP_AUTH_PASSWORD` is set) |
+| `ACTUAL_DATA_DIR`        | `.data/actual-cache`  | Local budget cache                                              |
+| `SETTINGS_PATH`          | `.data/settings.json` | Presets and account filters                                     |
+| `SYNC_INTERVAL_MS`       | `300000`              | Min ms between Actual syncs (5 min)                             |
+| `PORT`                   | `3000`                | HTTP port                                                       |
 
 Docker Compose sets `ACTUAL_DATA_DIR` / `SETTINGS_PATH` to `/data/...` automatically.
 

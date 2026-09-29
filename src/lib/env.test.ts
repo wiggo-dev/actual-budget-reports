@@ -16,6 +16,8 @@ describe("getEnv", () => {
       ACTUAL_SERVER_PASSWORD: "",
       ACTUAL_SYNC_ID: "",
       ACTUAL_E2E_PASSWORD: "",
+      APP_AUTH_PASSWORD: "",
+      APP_AUTH_USER: "",
     };
 
     const env = getEnv();
@@ -24,6 +26,8 @@ describe("getEnv", () => {
     expect(env.ACTUAL_SERVER_PASSWORD).toBeUndefined();
     expect(env.ACTUAL_SYNC_ID).toBeUndefined();
     expect(env.ACTUAL_E2E_PASSWORD).toBeUndefined();
+    expect(env.APP_AUTH_PASSWORD).toBeUndefined();
+    expect(env.APP_AUTH_USER).toBeUndefined();
     expect(isActualConfigured()).toBe(false);
   });
 });
