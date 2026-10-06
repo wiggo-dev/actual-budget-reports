@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.6.1
+
+### Patch Changes
+
+- 09b9a33: Bump @actual-app/api to 26.10.0 to match Actual server 26.10.x.
+
 ## 1.6.0
 
 ### Minor Changes
