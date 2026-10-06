@@ -3,6 +3,6 @@ allowBuilds:
   sharp: false
   unrs-resolver: false
 minimumReleaseAgeExclude:
-  - "@actual-app/api@26.9.0"
-  - "@actual-app/core@26.9.0"
+  - "@actual-app/api@26.10.0"
+  - "@actual-app/core@26.10.0"
 onlyBuiltDependencies: '["better-sqlite3"]'
