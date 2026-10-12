@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.6.2
+
+### Patch Changes
+
+- 2288ae7: Exclude paired account transfers from category spending, trends, and transaction drill-down.
+
 ## 1.6.1
 
 ### Patch Changes
