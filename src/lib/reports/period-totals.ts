@@ -7,6 +7,17 @@ export type PeriodTransaction = {
 };
 
 /**
+ * True when the counterpart of a transfer is also in `includedIds`.
+ * Moving money between included accounts is not income, expense, or spend.
+ */
+export function isPairedTransfer(
+  transferId: string | null | undefined,
+  includedIds: Set<string>
+): boolean {
+  return Boolean(transferId && includedIds.has(transferId));
+}
+
+/**
  * Sum inflow/outflow for transactions already scoped to included accounts.
  * Legs of a transfer whose counterpart is also in the set are ignored so
  * moving money between included accounts does not inflate totals.
@@ -20,7 +31,7 @@ export function summarizeFlows(transactions: PeriodTransaction[]): {
   let outflow = 0;
 
   for (const tx of transactions) {
-    if (tx.transferId && ids.has(tx.transferId)) {
+    if (isPairedTransfer(tx.transferId, ids)) {
       continue;
     }
 
