@@ -2,9 +2,20 @@ import { fromPartial } from "@total-typescript/shoehorn";
 import { describe, expect, it } from "vitest";
 
 import {
+  isPairedTransfer,
   summarizeFlows,
   type PeriodTransaction,
 } from "@/lib/reports/period-totals";
+
+describe("isPairedTransfer", () => {
+  it("is true only when the counterpart id is in the included set", () => {
+    const ids = new Set(["xfer-in", "rent"]);
+    expect(isPairedTransfer("xfer-in", ids)).toBe(true);
+    expect(isPairedTransfer("missing", ids)).toBe(false);
+    expect(isPairedTransfer(null, ids)).toBe(false);
+    expect(isPairedTransfer(undefined, ids)).toBe(false);
+  });
+});
 
 describe("summarizeFlows", () => {
   it("does not count transfers between included accounts as inflow or outflow", () => {

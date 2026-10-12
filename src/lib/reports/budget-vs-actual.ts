@@ -10,6 +10,7 @@ import {
   monthStartsForRange,
   type ReportRange,
 } from "@/lib/reports/report-range";
+import { isPairedTransfer } from "@/lib/reports/period-totals";
 import { expandSplitTransactions } from "@/lib/reports/transaction-splits";
 
 export type BudgetActualRow = {
@@ -69,7 +70,7 @@ function spentByCategory(
     if (isCategoryExcluded(tx.categoryId ?? undefined, excludedCategoryIds)) {
       continue;
     }
-    if (tx.transferId && ids.has(tx.transferId)) {
+    if (isPairedTransfer(tx.transferId, ids)) {
       continue;
     }
     if (tx.amount >= 0) {

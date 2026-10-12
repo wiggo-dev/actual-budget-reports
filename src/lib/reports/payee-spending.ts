@@ -10,6 +10,7 @@ import {
   dateBoundsForRange,
   type ReportRange,
 } from "@/lib/reports/report-range";
+import { isPairedTransfer } from "@/lib/reports/period-totals";
 import { expandSplitTransactions } from "@/lib/reports/transaction-splits";
 
 export type PayeeSpendTransaction = {
@@ -38,7 +39,7 @@ export function rankPayeeSpend(
     if (isCategoryExcluded(categoryByTxId.get(tx.id), excludedCategoryIds)) {
       continue;
     }
-    if (tx.transferId && ids.has(tx.transferId)) {
+    if (isPairedTransfer(tx.transferId, ids)) {
       continue;
     }
     if (tx.amount >= 0) {
@@ -159,58 +160,67 @@ export async function getFilteredTransactions(
     }
   }
 
-  const rows: TransactionListRow[] = [];
-  const seen = new Set<string>();
-
+  type ExpandedRow = ReturnType<typeof expandSplitTransactions>[number] & {
+    accountId: string;
+    date: string;
+  };
+  const expanded: ExpandedRow[] = [];
   for (const account of accounts) {
     const accountTxs = await actual.getTransactions(account.id, start, end);
     for (const tx of expandSplitTransactions(accountTxs)) {
-      if (seen.has(tx.id)) {
-        continue;
-      }
-      seen.add(tx.id);
-
-      if (tx.transfer_id) {
-        // Still show transfers in drill-down when explicitly filtering;
-        // ranking excludes them, but investigators may want the legs.
-      }
-
-      const payeeId = typeof tx.payee === "string" ? tx.payee : null;
-      const payeeName = payeeId
-        ? (payeeNames.get(payeeId) ?? "Unknown")
-        : "Unknown";
-      const categoryId =
-        typeof tx.category === "string" ? tx.category : undefined;
-      if (isCategoryExcluded(categoryId, excludedCategoryIds)) {
-        continue;
-      }
-      const categoryName = categoryId
-        ? (categoryNames.get(categoryId) ?? "Uncategorized")
-        : "Uncategorized";
-
-      if (filterOptions.payeeId && payeeId !== filterOptions.payeeId) {
-        continue;
-      }
-      if (
-        !filterOptions.payeeId &&
-        filterOptions.payeeName &&
-        payeeName !== filterOptions.payeeName
-      ) {
-        continue;
-      }
-      if (filterOptions.category && categoryName !== filterOptions.category) {
-        continue;
-      }
-
-      rows.push({
-        id: tx.id,
-        date: tx.date,
-        payee: payeeName,
-        category: categoryName,
-        account: accountNames.get(account.id) ?? "Unknown",
-        amount: integerToAmount(tx.amount),
-      });
+      expanded.push({ ...tx, accountId: account.id, date: tx.date });
     }
+  }
+
+  const includedIds = new Set(expanded.map((tx) => tx.id));
+  const rows: TransactionListRow[] = [];
+  const seen = new Set<string>();
+
+  for (const tx of expanded) {
+    if (seen.has(tx.id)) {
+      continue;
+    }
+    seen.add(tx.id);
+
+    if (isPairedTransfer(tx.transfer_id, includedIds)) {
+      continue;
+    }
+
+    const payeeId = typeof tx.payee === "string" ? tx.payee : null;
+    const payeeName = payeeId
+      ? (payeeNames.get(payeeId) ?? "Unknown")
+      : "Unknown";
+    const categoryId =
+      typeof tx.category === "string" ? tx.category : undefined;
+    if (isCategoryExcluded(categoryId, excludedCategoryIds)) {
+      continue;
+    }
+    const categoryName = categoryId
+      ? (categoryNames.get(categoryId) ?? "Uncategorized")
+      : "Uncategorized";
+
+    if (filterOptions.payeeId && payeeId !== filterOptions.payeeId) {
+      continue;
+    }
+    if (
+      !filterOptions.payeeId &&
+      filterOptions.payeeName &&
+      payeeName !== filterOptions.payeeName
+    ) {
+      continue;
+    }
+    if (filterOptions.category && categoryName !== filterOptions.category) {
+      continue;
+    }
+
+    rows.push({
+      id: tx.id,
+      date: tx.date,
+      payee: payeeName,
+      category: categoryName,
+      account: accountNames.get(tx.accountId) ?? "Unknown",
+      amount: integerToAmount(tx.amount),
+    });
   }
 
   return rows.sort(

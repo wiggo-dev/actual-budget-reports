@@ -11,6 +11,7 @@ import {
   monthStartsForRange,
   type ReportRange,
 } from "@/lib/reports/report-range";
+import { isPairedTransfer } from "@/lib/reports/period-totals";
 import {
   expandSplitTransactions,
   type TransactionWithSplits,
@@ -96,8 +97,13 @@ export function aggregateCategorySpend(
   const categoryGroupIndex = options.categoryGroupIndex ?? new Map();
   const groupNames = options.groupNames ?? new Map();
   const totals = new Map<string, number>();
+  const expanded = expandSplitTransactions(transactions);
+  const includedIds = new Set(expanded.map((tx) => tx.id));
 
-  for (const tx of expandSplitTransactions(transactions)) {
+  for (const tx of expanded) {
+    if (isPairedTransfer(tx.transfer_id, includedIds)) {
+      continue;
+    }
     if (tx.amount >= 0) {
       continue;
     }
@@ -218,47 +224,52 @@ export async function getSpendingByCategoryTrend(
     perMonth.set(key, new Map());
   }
 
-  for (const account of accounts) {
-    for (const monthStart of monthStarts) {
-      const key = monthKey(monthStart);
-      const start = formatLocalDate(monthStart);
-      const end = formatLocalDate(
-        new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0)
-      );
-      const bucket = perMonth.get(key)!;
+  for (const monthStart of monthStarts) {
+    const key = monthKey(monthStart);
+    const start = formatLocalDate(monthStart);
+    const end = formatLocalDate(
+      new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0)
+    );
+    const bucket = perMonth.get(key)!;
+    const monthTransactions: SpendTransaction[] = [];
+
+    for (const account of accounts) {
       const transactions = await actual.getTransactions(account.id, start, end);
+      monthTransactions.push(...transactions);
+    }
 
-      for (const tx of expandSplitTransactions(transactions)) {
-        if (tx.amount >= 0) {
-          continue;
-        }
+    const expanded = expandSplitTransactions(monthTransactions);
+    const includedIds = new Set(expanded.map((tx) => tx.id));
 
-        const categoryId =
-          typeof tx.category === "string" ? tx.category : undefined;
-        if (isCategoryExcluded(categoryId, excludedCategoryIds)) {
-          continue;
-        }
-        if (
-          !categoryBelongsToGroup(
-            categoryId,
-            options.groupId,
-            categoryGroupIndex
-          )
-        ) {
-          continue;
-        }
-
-        const label = resolveSpendBucket(
-          categoryId,
-          aggregation,
-          categoryNames,
-          categoryGroupIndex,
-          groupNames
-        );
-        const amount = Math.abs(integerToAmount(tx.amount));
-        bucket.set(label, (bucket.get(label) ?? 0) + amount);
-        categoryTotals.set(label, (categoryTotals.get(label) ?? 0) + amount);
+    for (const tx of expanded) {
+      if (isPairedTransfer(tx.transfer_id, includedIds)) {
+        continue;
       }
+      if (tx.amount >= 0) {
+        continue;
+      }
+
+      const categoryId =
+        typeof tx.category === "string" ? tx.category : undefined;
+      if (isCategoryExcluded(categoryId, excludedCategoryIds)) {
+        continue;
+      }
+      if (
+        !categoryBelongsToGroup(categoryId, options.groupId, categoryGroupIndex)
+      ) {
+        continue;
+      }
+
+      const label = resolveSpendBucket(
+        categoryId,
+        aggregation,
+        categoryNames,
+        categoryGroupIndex,
+        groupNames
+      );
+      const amount = Math.abs(integerToAmount(tx.amount));
+      bucket.set(label, (bucket.get(label) ?? 0) + amount);
+      categoryTotals.set(label, (categoryTotals.get(label) ?? 0) + amount);
     }
   }
 

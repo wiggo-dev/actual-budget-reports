@@ -110,6 +110,47 @@ describe("aggregateCategorySpend", () => {
     ]);
   });
 
+  it("skips transfers between included accounts", () => {
+    const transactions: SpendTransaction[] = [
+      fromPartial({
+        id: "grocery",
+        amount: -4000,
+        category: "food",
+      }),
+      fromPartial({
+        id: "xfer-out",
+        amount: -50000,
+        category: "food",
+        transfer_id: "xfer-in",
+      }),
+      fromPartial({
+        id: "xfer-in",
+        amount: 50000,
+        category: null,
+        transfer_id: "xfer-out",
+      }),
+    ];
+
+    expect(aggregateCategorySpend(transactions, names)).toEqual([
+      { category: "Groceries", amount: 40 },
+    ]);
+  });
+
+  it("counts a transfer whose counterpart is outside the included set", () => {
+    const transactions: SpendTransaction[] = [
+      fromPartial({
+        id: "to-excluded",
+        amount: -2000,
+        category: "food",
+        transfer_id: "excluded-leg",
+      }),
+    ];
+
+    expect(aggregateCategorySpend(transactions, names)).toEqual([
+      { category: "Groceries", amount: 20 },
+    ]);
+  });
+
   it("skips excluded category ids", () => {
     const transactions: SpendTransaction[] = [
       fromPartial({ amount: -4000, category: "food" }),
